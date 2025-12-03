@@ -4,7 +4,7 @@ import {
     Container, Paper, Typography, Grid, TextField, Button, Box, Alert,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Tooltip, CircularProgress, Divider, Chip
 } from '@mui/material';
-import { Save, PersonAdd, Delete, Functions, HelpOutline, Settings as SettingsIcon } from '@mui/icons-material';
+import { Save, PersonAdd, Delete, Functions, HelpOutline, Settings as SettingsIcon, Psychology } from '@mui/icons-material';
 import { settingsService } from '../services/api';
 
 export default function Settings() {
@@ -33,6 +33,11 @@ export default function Settings() {
                     capacity_low: 90,
                     capacity_medium: 70,
                     capacity_high: 50
+                },
+                strategic_config: actualData.strategic_config || {
+                    genai_cost_per_transaction: 0.05,
+                    idp_license_annual: 5000,
+                    turnover_replacement_cost_percentage: 20
                 }
             };
 
@@ -69,11 +74,18 @@ export default function Settings() {
             capacity_high: Number(data.maintenance_config?.capacity_high) || 50
         };
 
+        const cleanStrategic = {
+            genai_cost_per_transaction: Number(data.strategic_config?.genai_cost_per_transaction) || 0.05,
+            idp_license_annual: Number(data.strategic_config?.idp_license_annual) || 5000,
+            turnover_replacement_cost_percentage: Number(data.strategic_config?.turnover_replacement_cost_percentage) || 20
+        };
+
         return {
             team_composition: cleanTeam,
             infra_costs: cleanInfra,
             baselines: cleanBaselines,
-            maintenance_config: cleanMaintenance
+            maintenance_config: cleanMaintenance,
+            strategic_config: cleanStrategic
         };
     };
 
@@ -386,6 +398,56 @@ export default function Settings() {
                                 maintenance_config: { ...prev.maintenance_config, capacity_high: e.target.value }
                             }))}
                             helperText="Robôs por FTE"
+                        />
+                    </Grid>
+                </Grid>
+            </Paper>
+
+            {/* SEÇÃO 5: PARÂMETROS DE IA E ESTRATÉGIA */}
+            <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Psychology color="primary" sx={{ mr: 1 }} />
+                    <Typography variant="h6">5. Parâmetros de IA e Estratégia</Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Defina os custos unitários para tecnologias cognitivas e premissas de cálculo estratégico.
+                </Typography>
+
+                <Grid container spacing={3}>
+                    <Grid item xs={12} md={4}>
+                        <TextField
+                            fullWidth label="Custo GenAI por Transação (Tokens)" type="number"
+                            value={settings.strategic_config?.genai_cost_per_transaction || 0.05}
+                            onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                strategic_config: { ...prev.strategic_config, genai_cost_per_transaction: e.target.value }
+                            }))}
+                            InputProps={{ startAdornment: <Typography variant="caption" sx={{ mr: 1 }}>R$</Typography> }}
+                            helperText="Custo médio de tokens LLM por item processado."
+                        />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                        <TextField
+                            fullWidth label="Licença Anual IDP (OCR AI)" type="number"
+                            value={settings.strategic_config?.idp_license_annual || 5000}
+                            onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                strategic_config: { ...prev.strategic_config, idp_license_annual: e.target.value }
+                            }))}
+                            InputProps={{ startAdornment: <Typography variant="caption" sx={{ mr: 1 }}>R$</Typography> }}
+                            helperText="Custo fixo anual caso utilize IDP."
+                        />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                        <TextField
+                            fullWidth label="Custo Reposição Turnover" type="number"
+                            value={settings.strategic_config?.turnover_replacement_cost_percentage || 20}
+                            onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                strategic_config: { ...prev.strategic_config, turnover_replacement_cost_percentage: e.target.value }
+                            }))}
+                            InputProps={{ endAdornment: <Typography variant="caption" sx={{ ml: 1 }}>%</Typography> }}
+                            helperText="% do Salário Anual gasto para repor um funcionário."
                         />
                     </Grid>
                 </Grid>

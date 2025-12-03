@@ -55,7 +55,7 @@ function AppContent() {
         <>
             <Navbar currentView={currentView} onViewChange={setCurrentView} />
             <Box sx={{ pb: 8 }}>
-                {currentView === 'home' && <Home onStart={handleNewCalculation} />}
+                {currentView === 'home' && <Home onStart={handleNewCalculation} onViewProject={handleViewProject} />}
                 {currentView === 'wizard' && <ROIWizard onComplete={handleCalculationComplete} />}
                 {currentView === 'results' && selectedProject && <ResultsDashboard data={selectedProject} onNewCalculation={handleNewCalculation} />}
                 {currentView === 'history' && <ProjectHistory onViewProject={handleViewProject} />}

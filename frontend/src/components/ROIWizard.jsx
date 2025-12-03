@@ -9,12 +9,11 @@ import Step1ProjectInfo from './steps/Step1ProjectInfo';
 import Step2AsIsInputs from './steps/Step2AsIsInputs';
 import Step3Complexity from './steps/Step3Complexity';
 import Step4Strategic from './steps/Step4Strategic';
-import Step5Maintenance from './steps/Step5Maintenance'; // Importar novo step
 import Step5Review from './steps/Step5Review';
 import { projectService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const steps = ['Projeto', 'Cenário', 'Complexidade', 'Estratégia', 'Sustentação', 'Revisão']; // Adicionado Sustentação
+const steps = ['Projeto', 'Cenário', 'Complexidade', 'Estratégia', 'Revisão'];
 
 export default function ROIWizard({ onComplete }) {
     const theme = useTheme();
@@ -50,10 +49,6 @@ export default function ROIWizard({ onComplete }) {
             errorCost: '',
             needs24h: false,
             turnoverRate: ''
-        },
-        maintenance: {
-            fteMonthlyCost: '',
-            capacityDivisor: ''
         }
     });
 
@@ -106,10 +101,6 @@ export default function ROIWizard({ onComplete }) {
                 errorCost: '',
                 needs24h: false,
                 turnoverRate: ''
-            },
-            maintenance: {
-                fteMonthlyCost: '',
-                capacityDivisor: ''
             }
         });
     };
@@ -147,10 +138,6 @@ export default function ROIWizard({ onComplete }) {
                     errorCost: parseFloat(formData.strategic.errorCost) || 0,
                     needs24h: formData.strategic.needs24h || false,
                     turnoverRate: parseFloat(formData.strategic.turnoverRate) || 0
-                },
-                maintenance: {
-                    fteMonthlyCost: parseFloat(formData.maintenance.fteMonthlyCost) || 0,
-                    capacityDivisor: parseFloat(formData.maintenance.capacityDivisor) || 1
                 }
             };
 
@@ -182,41 +169,15 @@ export default function ROIWizard({ onComplete }) {
         }));
     };
 
-    const updateNestedFormData = (section, field, value) => {
-        setFormData((prev) => ({
-            ...prev,
-            [section]: {
-                ...prev[section],
-                [field]: value
-            }
-        }));
-    };
-
     const isStepValid = () => {
         switch (activeStep) {
             case 0: return formData.projectName.trim().length > 0;
             case 1: return (formData.inputs.volume > 0 && formData.inputs.aht > 0 && formData.inputs.fteCost > 0);
             case 2: return (formData.complexity.numApplications > 0 && formData.complexity.numSteps > 0);
             case 3: return true;
-            case 4: return (formData.maintenance.fteMonthlyCost > 0 && formData.maintenance.capacityDivisor > 0); // Validação Sustentação
-            case 5: return true;
+            case 4: return true;
             default: return false;
         }
-    };
-
-    // Helper para calcular complexidade localmente e passar para o Step5Maintenance
-    const getComplexityClassification = () => {
-        let points = 0;
-        const { numApplications, dataType, environment, numSteps } = formData.complexity;
-
-        if (numApplications <= 2) points += 1; else if (numApplications <= 4) points += 2; else points += 3;
-        if (dataType === 'structured') points += 1; else if (dataType === 'text') points += 2; else points += 5;
-        if (environment === 'web') points += 1; else if (environment === 'sap') points += 2; else points += 4;
-        if (numSteps < 20) points += 1; else if (numSteps <= 50) points += 3; else points += 5;
-
-        if (points >= 12) return 'HIGH';
-        if (points >= 7) return 'MEDIUM';
-        return 'LOW';
     };
 
     const renderStepContent = (step) => {
@@ -225,12 +186,7 @@ export default function ROIWizard({ onComplete }) {
             case 1: return <Step2AsIsInputs data={formData.inputs} onChange={(value) => updateFormData('inputs', value)} />;
             case 2: return <Step3Complexity data={formData.complexity} onChange={(value) => updateFormData('complexity', value)} />;
             case 3: return <Step4Strategic data={formData.strategic} onChange={(value) => updateFormData('strategic', value)} />;
-            case 4: return <Step5Maintenance
-                data={formData.maintenance}
-                onChange={(field, value) => updateNestedFormData('maintenance', field, value)}
-                complexityClassification={getComplexityClassification()}
-            />;
-            case 5: return <Step5Review data={formData} />;
+            case 4: return <Step5Review data={formData} />;
             default: return <Typography>Passo desconhecido</Typography>;
         }
     };

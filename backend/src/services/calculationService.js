@@ -84,7 +84,9 @@ class FinancialService {
                 data = {
                     team_composition: [{ role: 'Dev Padrão', rate: 120.0, share: 1.0 }],
                     infra_costs: { rpa_license_annual: 15000.0, virtual_machine_annual: 5000.0 },
-                    baselines: { low: 100, medium: 240, high: 480 }
+                    baselines: { low: 100, medium: 240, high: 480 },
+                    strategic_config: { genai_cost_per_transaction: 0.05, idp_license_annual: 5000, turnover_replacement_cost_percentage: 20 },
+                    maintenance_config: { fte_monthly_cost: 8000, capacity_low: 90, capacity_medium: 70, capacity_high: 50 }
                 };
             } else {
                 data = settingsDoc.data();
@@ -147,6 +149,17 @@ class FinancialService {
     async calculateFullROI(inputs, complexity, strategic = {}, maintenance = {}) {
         // 1. Carregar configurações do banco
         const config = await this.getGlobalRates();
+        const strategicConfig = config.strategic_config || {
+            genai_cost_per_transaction: 0.05,
+            idp_license_annual: 5000,
+            turnover_replacement_cost_percentage: 20
+        };
+        const maintenanceConfig = config.maintenance_config || {
+            fte_monthly_cost: 8000,
+            capacity_low: 90,
+            capacity_medium: 70,
+            capacity_high: 50
+        };
 
         // 2. Calcular complexidade e horas
         const complexityService = new ComplexityService();
@@ -181,12 +194,13 @@ class FinancialService {
 
         // Turnover Cost (Soft Savings)
         if (strategic.turnoverRate > 0) {
-            // Estimativa: 20% do salário anual por contratação/treinamento
+            // Estimativa: % do salário anual por contratação/treinamento (Default 20%)
+            const turnoverPercentage = (strategicConfig.turnover_replacement_cost_percentage || 20) / 100;
+
             // FTE Count = (Volume * AHT) / 9600
             const fteCount = (inputs.volume * inputs.aht) / 9600;
-            // Custo Anual por FTE = fteCost * 12
-            // Custo Turnover = (Custo Anual * 0.2) * (Turnover% / 100) * FTE Count
-            turnoverCost = (inputs.fteCost * 12 * 0.2) * (strategic.turnoverRate / 100) * fteCount;
+            // Custo Turnover = (Custo Anual * %Reposição) * (Turnover% / 100) * FTE Count
+            turnoverCost = (inputs.fteCost * 12 * turnoverPercentage) * (strategic.turnoverRate / 100) * fteCount;
         }
 
         // Adiciona custos estratégicos ao AS-IS total (pois a automação elimina/reduz isso)
@@ -209,22 +223,28 @@ class FinancialService {
 
         // GenAI Cost
         if (strategic.cognitiveLevel === 'creation') {
-            // Estimativa: R$ 0.05 por transação (tokens)
-            genAiCost = (inputs.volume * 12) * 0.05;
+            // Custo por transação configurável
+            const costPerTransaction = strategicConfig.genai_cost_per_transaction || 0.05;
+            genAiCost = (inputs.volume * 12) * costPerTransaction;
         }
 
         // IDP Cost
-        if (strategic.inputVariability === 'always') {
-            // Licença adicional de IDP (ex: R$ 5.000/ano)
-            idpCost = 5000;
+        if (strategic.inputVariability === 'always' || complexity.dataType === 'ocr') {
+            // Licença adicional de IDP configurável
+            idpCost = strategicConfig.idp_license_annual || 5000;
         }
 
-        // --- Maintenance Cost Calculation (New Logic) ---
+        // --- Maintenance Cost Calculation (Automated via Settings) ---
         let maintenanceCost = 0;
-        if (maintenance.fteMonthlyCost && maintenance.capacityDivisor) {
+        let capacityDivisor = maintenanceConfig.capacity_medium; // Default
+
+        if (complexityScore.classification === 'LOW') capacityDivisor = maintenanceConfig.capacity_low;
+        if (complexityScore.classification === 'HIGH') capacityDivisor = maintenanceConfig.capacity_high;
+
+        if (maintenanceConfig.fte_monthly_cost && capacityDivisor) {
             // Custo Mensal Fracionado = Custo FTE / Capacidade
             // Custo Anual = Mensal * 12
-            maintenanceCost = (maintenance.fteMonthlyCost / maintenance.capacityDivisor) * 12;
+            maintenanceCost = (maintenanceConfig.fte_monthly_cost / capacityDivisor) * 12;
         } else {
             // Fallback: 15% do custo de desenvolvimento
             maintenanceCost = developmentCost * 0.15;
@@ -254,8 +274,8 @@ class FinancialService {
             maintenance: {
                 monthlyCost: maintenanceCost / 12,
                 annualCost: maintenanceCost,
-                fteCost: maintenance.fteMonthlyCost || 0,
-                capacityDivisor: maintenance.capacityDivisor || 0
+                fteCost: maintenanceConfig.fte_monthly_cost || 0,
+                capacityDivisor: capacityDivisor || 0
             },
             costs: {
                 asIs: {

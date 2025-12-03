@@ -1,13 +1,52 @@
 // frontend/src/components/Home.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Box, Typography, Button, Grid, Paper, Container, Stack, Divider
+    Box, Typography, Button, Grid, Paper, Container, Stack, Divider,
+    List, ListItem, ListItemText, ListItemAvatar, Avatar, Chip, CircularProgress,
+    ListItemButton
 } from '@mui/material';
 import {
-    Add, Assessment, History, TrendingUp, Storage
+    Add, Assessment, History, TrendingUp, Storage, Description, ChevronRight
 } from '@mui/icons-material';
+import { projectService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
-export default function Home({ onStart }) {
+export default function Home({ onStart, onViewProject }) {
+    const { currentUser } = useAuth();
+    const [recentProjects, setRecentProjects] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchRecentProjects = async () => {
+            if (!currentUser) return;
+            setLoading(true);
+            try {
+                const response = await projectService.listProjects(currentUser.uid);
+                const list = (response && Array.isArray(response.data)) ? response.data : [];
+
+                const sorted = list.sort((a, b) => {
+                    const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+                    const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+                    return dateB - dateA;
+                });
+                setRecentProjects(sorted.slice(0, 3));
+            } catch (error) {
+                console.error("Erro ao buscar projetos recentes:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (currentUser) {
+            fetchRecentProjects();
+        }
+    }, [currentUser]);
+
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        return new Date(dateString).toLocaleDateString('pt-BR');
+    };
+
     return (
         <Box sx={{ width: '100%', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
 
@@ -101,15 +140,59 @@ export default function Home({ onStart }) {
 
                     {/* Stats / Info Side */}
                     <Grid item xs={12} md={4}>
-                        <Paper elevation={0} sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2, height: '100%' }}>
+                        <Paper elevation={0} sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
                             <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <History fontSize="small" /> Recentes
                             </Typography>
                             <Divider sx={{ my: 2 }} />
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                                    Nenhuma simulação recente encontrada.
-                                </Typography>
+
+                            <Box sx={{ flex: 1, overflow: 'auto' }}>
+                                {loading ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                        <CircularProgress size={24} />
+                                    </Box>
+                                ) : recentProjects.length > 0 ? (
+                                    <List disablePadding>
+                                        {recentProjects.map((project) => (
+                                            <ListItemButton
+                                                key={project.id}
+                                                onClick={() => onViewProject(project)}
+                                                sx={{
+                                                    px: 1,
+                                                    py: 1.5,
+                                                    borderRadius: 1,
+                                                    mb: 1,
+                                                    '&:hover': { bgcolor: 'grey.100' }
+                                                }}
+                                            >
+                                                <ListItemAvatar>
+                                                    <Avatar sx={{ bgcolor: 'secondary.light', color: 'secondary.main', width: 32, height: 32 }}>
+                                                        <Description fontSize="small" />
+                                                    </Avatar>
+                                                </ListItemAvatar>
+                                                <ListItemText
+                                                    primary={
+                                                        <Typography variant="subtitle2" noWrap>
+                                                            {project.project_name}
+                                                        </Typography>
+                                                    }
+                                                    secondary={
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {formatDate(project.created_at)} • ROI {project.results?.roi_year_1}%
+                                                        </Typography>
+                                                    }
+                                                />
+                                                <ChevronRight fontSize="small" color="action" />
+                                            </ListItemButton>
+                                        ))}
+                                    </List>
+                                ) : (
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                        <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                                            Nenhuma simulação recente encontrada.
+                                        </Typography>
+                                    </Box>
+                                )}
                             </Box>
                         </Paper>
                     </Grid>

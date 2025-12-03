@@ -1,5 +1,5 @@
 // frontend/src/components/steps/Step5Review.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Box,
     Typography,
@@ -10,7 +10,9 @@ import {
     List,
     ListItem,
     ListItemText,
-    ListItemIcon
+    ListItemIcon,
+    Tooltip,
+    IconButton
 } from '@mui/material';
 import {
     CheckCircle,
@@ -18,10 +20,26 @@ import {
     TrendingUp,
     Settings,
     Psychology,
-    Calculate
+    Calculate,
+    Info
 } from '@mui/icons-material';
+import { settingsService } from '../../services/api';
 
 export default function Step5Review({ data }) {
+    const [settings, setSettings] = useState(null);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const response = await settingsService.getSettings();
+                setSettings(response.data);
+            } catch (error) {
+                console.error("Erro ao carregar configurações para revisão:", error);
+            }
+        };
+        fetchSettings();
+    }, []);
+
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
@@ -52,32 +70,44 @@ export default function Step5Review({ data }) {
         return { level: 'BAIXA', color: 'success' };
     }, [data.complexity]);
 
-    // Estimativas para Memória de Cálculo (Lógica simplificada do Backend para visualização)
+    // Estimativas para Memória de Cálculo (Sincronizado com Backend/Settings)
     const memory = React.useMemo(() => {
         const vol = parseFloat(data.inputs.volume) || 0;
         const errRate = parseFloat(data.inputs.errorRate) || 0;
         const errCost = parseFloat(data.strategic?.errorCost) || 0;
         const turnover = parseFloat(data.strategic?.turnoverRate) || 0;
         const fteCost = parseFloat(data.inputs.fteCost) || 0;
+        const aht = parseFloat(data.inputs.aht) || 0;
+
+        // Configurações Globais (Fallbacks)
+        const genAiRate = settings?.strategic_config?.genai_cost_per_transaction || 0.05;
+        const idpAnnual = settings?.strategic_config?.idp_license_annual || 5000;
+        const turnoverReplacementPct = settings?.strategic_config?.turnover_replacement_cost_percentage || 20;
 
         // 1. Custo de Risco (Evitado)
         const riskCost = (vol * (errRate / 100)) * errCost;
 
-        // 2. Soft Savings (Turnover) - Estimativa: 20% do salário anual * taxa turnover
-        const turnoverSavings = (fteCost * 12 * 0.20) * (turnover / 100);
+        // 2. Soft Savings (Turnover)
+        // Fórmula: (Custo Anual FTE * %Reposição) * (Turnover% / 100) * FTE Count
+        const fteCount = (vol * aht) / 9600; // 9600 min/mês
+        const turnoverSavings = (fteCost * 12 * (turnoverReplacementPct / 100)) * (turnover / 100) * fteCount;
 
         // 3. Multiplicador SLA
         const slaMultiplier = data.strategic?.needs24h ? 3 : 1;
 
         // 4. Custos Adicionais TO-BE
         let genAiCost = 0;
-        if (data.strategic?.cognitiveLevel === 'creation') genAiCost = vol * 0.05; // R$ 0,05 por item (estimativa token)
+        if (data.strategic?.cognitiveLevel === 'creation') {
+            genAiCost = vol * genAiRate;
+        }
 
         let idpCost = 0;
-        if (data.strategic?.inputVariability === 'always') idpCost = vol * 0.10; // R$ 0,10 por página (estimativa IDP)
+        if (data.strategic?.inputVariability === 'always' || data.complexity.dataType === 'ocr') {
+            idpCost = idpAnnual / 12; // Mostrando mensal para consistência visual
+        }
 
-        return { riskCost, turnoverSavings, slaMultiplier, genAiCost, idpCost };
-    }, [data]);
+        return { riskCost, turnoverSavings, slaMultiplier, genAiCost, idpCost, genAiRate, idpAnnual, turnoverReplacementPct };
+    }, [data, settings]);
 
     const dataTypeLabels = {
         structured: 'Estruturados (Excel, CSV)',
@@ -318,9 +348,14 @@ export default function Step5Review({ data }) {
                     <Typography variant="h6" fontWeight={600} color="text.primary">
                         Memória de Cálculo (Estimativa)
                     </Typography>
+                    <Tooltip title="Estes valores são calculados com base nos parâmetros definidos em Configurações Globais.">
+                        <IconButton size="small" sx={{ ml: 1 }}>
+                            <Info fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
                 </Box>
                 <Typography variant="body2" color="text.secondary" paragraph>
-                    Baseado nos parâmetros estratégicos, o sistema considerará os seguintes impactos no Business Case:
+                    Baseado nos parâmetros estratégicos e nas <strong>Configurações Globais</strong>, o sistema considerará os seguintes impactos:
                 </Typography>
 
                 <Grid container spacing={2}>
@@ -337,7 +372,14 @@ export default function Step5Review({ data }) {
                                 <ListItemIcon><CheckCircle fontSize="small" color="success" /></ListItemIcon>
                                 <ListItemText
                                     primary="Soft Savings (Turnover)"
-                                    secondary={`${formatCurrency(memory.turnoverSavings)} / ano (Recrutamento e Treinamento)`}
+                                    secondary={
+                                        <span>
+                                            {formatCurrency(memory.turnoverSavings)} / ano
+                                            <Typography variant="caption" display="block" color="text.secondary">
+                                                (Baseado em {memory.turnoverReplacementPct}% do custo anual de reposição)
+                                            </Typography>
+                                        </span>
+                                    }
                                 />
                             </ListItem>
                             <ListItem>
@@ -355,14 +397,32 @@ export default function Step5Review({ data }) {
                                 <ListItemIcon><Settings fontSize="small" color="action" /></ListItemIcon>
                                 <ListItemText
                                     primary="Custo Estimado GenAI"
-                                    secondary={memory.genAiCost > 0 ? `${formatCurrency(memory.genAiCost)} / mês (Tokens)` : 'N/A'}
+                                    secondary={
+                                        memory.genAiCost > 0 ? (
+                                            <span>
+                                                {formatCurrency(memory.genAiCost)} / mês
+                                                <Typography variant="caption" display="block" color="text.secondary">
+                                                    ({formatCurrency(memory.genAiRate)} por transação - Configurações)
+                                                </Typography>
+                                            </span>
+                                        ) : 'N/A (Não utiliza GenAI)'
+                                    }
                                 />
                             </ListItem>
                             <ListItem>
                                 <ListItemIcon><Settings fontSize="small" color="action" /></ListItemIcon>
                                 <ListItemText
                                     primary="Custo Estimado IDP"
-                                    secondary={memory.idpCost > 0 ? `${formatCurrency(memory.idpCost)} / mês (Licença OCR)` : 'N/A'}
+                                    secondary={
+                                        memory.idpCost > 0 ? (
+                                            <span>
+                                                {formatCurrency(memory.idpCost)} / mês
+                                                <Typography variant="caption" display="block" color="text.secondary">
+                                                    (Licença Anual de {formatCurrency(memory.idpAnnual)} rateada)
+                                                </Typography>
+                                            </span>
+                                        ) : 'N/A (Não utiliza IDP)'
+                                    }
                                 />
                             </ListItem>
                         </List>

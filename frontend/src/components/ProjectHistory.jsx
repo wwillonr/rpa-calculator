@@ -40,7 +40,8 @@ export default function ProjectHistory({ onViewProject }) {
 
       const response = await projectService.listProjects(targetUid);
 
-      const list = Array.isArray(response.data) ? response.data : [];
+      // O serviço retorna { success: true, data: [...] }
+      const list = (response && Array.isArray(response.data)) ? response.data : [];
       setProjects(list);
     } catch (error) {
       console.error("Erro ao carregar histórico", error);
