@@ -7,6 +7,10 @@ import {
     Grid,
     Divider,
     Chip,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemIcon
 } from '@mui/material';
 import {
     CheckCircle,
@@ -14,6 +18,7 @@ import {
     TrendingUp,
     Settings,
     Psychology,
+    Calculate
 } from '@mui/icons-material';
 
 export default function Step5Review({ data }) {
@@ -46,6 +51,33 @@ export default function Step5Review({ data }) {
         if (points >= 7) return { level: 'MÉDIA', color: 'warning' };
         return { level: 'BAIXA', color: 'success' };
     }, [data.complexity]);
+
+    // Estimativas para Memória de Cálculo (Lógica simplificada do Backend para visualização)
+    const memory = React.useMemo(() => {
+        const vol = parseFloat(data.inputs.volume) || 0;
+        const errRate = parseFloat(data.inputs.errorRate) || 0;
+        const errCost = parseFloat(data.strategic?.errorCost) || 0;
+        const turnover = parseFloat(data.strategic?.turnoverRate) || 0;
+        const fteCost = parseFloat(data.inputs.fteCost) || 0;
+
+        // 1. Custo de Risco (Evitado)
+        const riskCost = (vol * (errRate / 100)) * errCost;
+
+        // 2. Soft Savings (Turnover) - Estimativa: 20% do salário anual * taxa turnover
+        const turnoverSavings = (fteCost * 12 * 0.20) * (turnover / 100);
+
+        // 3. Multiplicador SLA
+        const slaMultiplier = data.strategic?.needs24h ? 3 : 1;
+
+        // 4. Custos Adicionais TO-BE
+        let genAiCost = 0;
+        if (data.strategic?.cognitiveLevel === 'creation') genAiCost = vol * 0.05; // R$ 0,05 por item (estimativa token)
+
+        let idpCost = 0;
+        if (data.strategic?.inputVariability === 'always') idpCost = vol * 0.10; // R$ 0,10 por página (estimativa IDP)
+
+        return { riskCost, turnoverSavings, slaMultiplier, genAiCost, idpCost };
+    }, [data]);
 
     const dataTypeLabels = {
         structured: 'Estruturados (Excel, CSV)',
@@ -81,6 +113,7 @@ export default function Step5Review({ data }) {
                     mb: 2,
                     backgroundColor: 'grey.50',
                     borderRadius: 2,
+                    border: '1px solid #e0e0e0'
                 }}
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -103,7 +136,6 @@ export default function Step5Review({ data }) {
                             Responsável
                         </Typography>
                         <Typography variant="body1" fontWeight={500}>
-                            {/* CORREÇÃO AQUI: Mostra responsibleName ou ownerUid como fallback */}
                             {data.responsibleName || data.ownerUid || 'Não informado'}
                         </Typography>
                     </Grid>
@@ -118,6 +150,7 @@ export default function Step5Review({ data }) {
                     mb: 2,
                     backgroundColor: 'grey.50',
                     borderRadius: 2,
+                    border: '1px solid #e0e0e0'
                 }}
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -170,6 +203,7 @@ export default function Step5Review({ data }) {
                     mb: 2,
                     backgroundColor: 'grey.50',
                     borderRadius: 2,
+                    border: '1px solid #e0e0e0'
                 }}
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -224,8 +258,10 @@ export default function Step5Review({ data }) {
                 elevation={0}
                 sx={{
                     p: 3,
+                    mb: 2,
                     backgroundColor: 'grey.50',
                     borderRadius: 2,
+                    border: '1px solid #e0e0e0'
                 }}
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -262,6 +298,74 @@ export default function Step5Review({ data }) {
                         <Typography variant="body1" fontWeight={500}>
                             {data.strategic?.needs24h ? 'Sim' : 'Não'}
                         </Typography>
+                    </Grid>
+                </Grid>
+            </Paper>
+
+            {/* Metodologia e Memória de Cálculo */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 3,
+                    mb: 2,
+                    backgroundColor: '#f8fafc',
+                    borderRadius: 2,
+                    border: '1px dashed #94a3b8'
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Calculate color="secondary" sx={{ mr: 1 }} />
+                    <Typography variant="h6" fontWeight={600} color="text.primary">
+                        Memória de Cálculo (Estimativa)
+                    </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                    Baseado nos parâmetros estratégicos, o sistema considerará os seguintes impactos no Business Case:
+                </Typography>
+
+                <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                        <List dense>
+                            <ListItem>
+                                <ListItemIcon><CheckCircle fontSize="small" color="success" /></ListItemIcon>
+                                <ListItemText
+                                    primary="Custo de Risco Evitado"
+                                    secondary={`${formatCurrency(memory.riskCost)} / mês (Multas e Perdas)`}
+                                />
+                            </ListItem>
+                            <ListItem>
+                                <ListItemIcon><CheckCircle fontSize="small" color="success" /></ListItemIcon>
+                                <ListItemText
+                                    primary="Soft Savings (Turnover)"
+                                    secondary={`${formatCurrency(memory.turnoverSavings)} / ano (Recrutamento e Treinamento)`}
+                                />
+                            </ListItem>
+                            <ListItem>
+                                <ListItemIcon><CheckCircle fontSize="small" color="success" /></ListItemIcon>
+                                <ListItemText
+                                    primary="Multiplicador de Turno (SLA)"
+                                    secondary={memory.slaMultiplier > 1 ? `3x (Cobre 3 turnos de trabalho humano)` : '1x (Horário Comercial)'}
+                                />
+                            </ListItem>
+                        </List>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                        <List dense>
+                            <ListItem>
+                                <ListItemIcon><Settings fontSize="small" color="action" /></ListItemIcon>
+                                <ListItemText
+                                    primary="Custo Estimado GenAI"
+                                    secondary={memory.genAiCost > 0 ? `${formatCurrency(memory.genAiCost)} / mês (Tokens)` : 'N/A'}
+                                />
+                            </ListItem>
+                            <ListItem>
+                                <ListItemIcon><Settings fontSize="small" color="action" /></ListItemIcon>
+                                <ListItemText
+                                    primary="Custo Estimado IDP"
+                                    secondary={memory.idpCost > 0 ? `${formatCurrency(memory.idpCost)} / mês (Licença OCR)` : 'N/A'}
+                                />
+                            </ListItem>
+                        </List>
                     </Grid>
                 </Grid>
             </Paper>
