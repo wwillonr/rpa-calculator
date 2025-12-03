@@ -1,5 +1,5 @@
 // frontend/src/App.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeProvider, createTheme, CssBaseline, Box } from '@mui/material';
 import Navbar from './components/Navbar';
 import Home from './components/Home';
@@ -9,8 +9,9 @@ import ProjectHistory from './components/ProjectHistory';
 import Settings from './components/Settings';
 import ReloadPrompt from './components/ReloadPrompt';
 import Login from './components/Login';
-import SignUp from './components/SignUp'; // <--- Importar
+import SignUp from './components/SignUp';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { healthCheck } from './services/api';
 
 const theme = createTheme({
     palette: {
@@ -66,6 +67,14 @@ function AppContent() {
 }
 
 function App() {
+    useEffect(() => {
+        // Wake-up call para o backend (Render Free Tier)
+        // Faz um ping silencioso ao iniciar o app para acordar o servidor
+        healthCheck()
+            .then(() => console.log('Backend is awake!'))
+            .catch(() => console.log('Waking up backend...'));
+    }, []);
+
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
