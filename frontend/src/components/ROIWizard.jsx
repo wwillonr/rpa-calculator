@@ -10,10 +10,11 @@ import Step2AsIsInputs from './steps/Step2AsIsInputs';
 import Step3Complexity from './steps/Step3Complexity';
 import Step4Strategic from './steps/Step4Strategic';
 import Step5Review from './steps/Step5Review';
+import StepSustainability from './steps/StepSustainability';
 import { projectService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const steps = ['Projeto', 'Cenário', 'Complexidade', 'Estratégia', 'Revisão'];
+const steps = ['Projeto', 'Cenário', 'Complexidade', 'Estratégia', 'Sustentação', 'Revisão'];
 
 export default function ROIWizard({ onComplete }) {
     const theme = useTheme();
@@ -176,6 +177,7 @@ export default function ROIWizard({ onComplete }) {
             case 2: return (formData.complexity.numApplications > 0 && formData.complexity.numSteps > 0);
             case 3: return true;
             case 4: return true;
+            case 5: return true;
             default: return false;
         }
     };
@@ -186,7 +188,8 @@ export default function ROIWizard({ onComplete }) {
             case 1: return <Step2AsIsInputs data={formData.inputs} onChange={(value) => updateFormData('inputs', value)} />;
             case 2: return <Step3Complexity data={formData.complexity} onChange={(value) => updateFormData('complexity', value)} />;
             case 3: return <Step4Strategic data={formData.strategic} onChange={(value) => updateFormData('strategic', value)} />;
-            case 4: return <Step5Review data={formData} />;
+            case 4: return <StepSustainability data={formData} />;
+            case 5: return <Step5Review data={formData} />;
             default: return <Typography>Passo desconhecido</Typography>;
         }
     };
