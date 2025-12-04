@@ -298,7 +298,8 @@ class FinancialService {
 
         // 6. ROI e Payback
         const annualSavings = totalAsIsCost - totalToBeCost;
-        const roi = ((annualSavings - developmentCost) / developmentCost) * 100;
+        // ROI = (Economia Anual / Custo AS-IS Anual) * 100
+        const roi = (annualSavings / totalAsIsCost) * 100;
         const monthlySavings = annualSavings / 12;
         const paybackMonths = this.calculatePayback(developmentCost, monthlySavings);
 

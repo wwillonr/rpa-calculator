@@ -1,51 +1,123 @@
 // frontend/src/components/ResultsDashboard.jsx
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
-    Box, Typography, Paper, Grid, Card, CardContent, Chip, Divider, Button, Container, Tooltip as MuiTooltip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, List, ListItem, ListItemIcon, ListItemText
+    Box, Typography, Paper, Grid, Card, CardContent, Chip, Divider, Button, Container, Tooltip as MuiTooltip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, List, ListItem, ListItemIcon, ListItemText, LinearProgress
 } from '@mui/material';
 import {
-    TrendingUp, AttachMoney, Schedule, Assessment, Refresh, Download, Info, Description, CheckCircle, Settings, Psychology
+    TrendingUp, AttachMoney, Schedule, Assessment, Refresh, Download, Info, Description, CheckCircle, Settings, Psychology, CalendarToday, SupportAgent, AccessTime, Business, Engineering, Security
 } from '@mui/icons-material';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ReferenceLine
 } from 'recharts';
 
 // Importações para PDF
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-// 1. IMPORTAR O CONTEXTO DE AUTH
+// 1. IMPORTAR O CONTEXTO DE AUTH E API
 import { useAuth } from '../contexts/AuthContext';
+import { settingsService } from '../services/api';
 
 export default function ResultsDashboard({ data, onNewCalculation }) {
     const dashboardRef = useRef(null);
     const [isExporting, setIsExporting] = useState(false);
+    const [deliveryPlan, setDeliveryPlan] = useState([]);
+    const [loadingPlan, setLoadingPlan] = useState(true);
 
     // 2. PEGAR O USUÁRIO LOGADO
     const { currentUser } = useAuth();
 
+    // Carregar configurações para calcular o plano de entrega
+    useEffect(() => {
+        const calculateDeliveryPlan = async () => {
+            try {
+                let teamComposition = [];
+                const response = await settingsService.getSettings();
+                teamComposition = response.data?.team_composition || [];
+
+                const complexityKey = data.complexity_score?.classification?.toLowerCase() || 'simple';
+
+                const getHoursForRoles = (keywords) => {
+                    let totalHours = 0;
+                    teamComposition.forEach(member => {
+                        const roleName = member.role.toLowerCase();
+                        const matches = keywords.some(k => roleName.includes(k));
+                        if (matches) {
+                            const share = member.shares?.[complexityKey] || 0;
+                            totalHours += share * 168;
+                        }
+                    });
+                    return totalHours;
+                };
+
+                const reqHours = getHoursForRoles(['funcional', 'analista', 'business', 'po', 'product']);
+                const devHours = getHoursForRoles(['dev', 'desenvolvedor', 'rpa', 'programador']);
+                const testHours = getHoursForRoles(['test', 'qa', 'homolog']);
+                const hyperHours = getHoursForRoles(['hyper', 'care', 'sustenta', 'suporte']);
+
+                const reqDays = Math.max(Math.ceil(reqHours / 8), 1);
+                const devDays = Math.max(Math.ceil(devHours / 8), 1);
+                const testDays = Math.max(Math.ceil(testHours / 8), 1);
+                const hyperDays = Math.max(Math.ceil(hyperHours / 8), 1);
+
+                let currentDay = 0;
+                const plan = [];
+
+                plan.push({ phase: 'Levantamento de Requisitos', role: 'An. Funcional', start: currentDay, duration: reqDays, color: '#2196f3' });
+                currentDay += reqDays;
+
+                plan.push({ phase: 'Aprovação Doc. Funcional', role: 'Stakeholders', start: currentDay, duration: 1, color: '#9c27b0' });
+                currentDay += 1;
+
+                plan.push({ phase: 'Desenvolvimento', role: 'Dev. Pleno/Sênior', start: currentDay, duration: devDays, color: '#ff9800' });
+                currentDay += devDays;
+
+                plan.push({ phase: 'Testes (UAT/QA)', role: 'Tester Pleno', start: currentDay, duration: testDays, color: '#f44336' });
+                currentDay += testDays;
+
+                plan.push({ phase: 'Implantação em Produção', role: 'DevOps/Infra', start: currentDay, duration: 1, color: '#4caf50' });
+                currentDay += 1;
+
+                plan.push({ phase: 'Hyper Care (Acompanhamento)', role: 'Sustentação', start: currentDay, duration: hyperDays, color: '#00bcd4' });
+                currentDay += hyperDays;
+
+                setDeliveryPlan(plan);
+
+            } catch (error) {
+                console.error("Erro ao calcular plano de entrega:", error);
+            } finally {
+                setLoadingPlan(false);
+            }
+        };
+
+        calculateDeliveryPlan();
+    }, [data]);
+
     const formatCurrency = (value) => {
+        if (isNaN(value)) return 'R$ 0,00';
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 }).format(value);
     };
 
     const formatNumber = (value) => {
+        if (value === Infinity) return '∞';
+        if (isNaN(value)) return '0';
         return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
     };
 
     // Lógica para exibir o nome correto do responsável
     const getResponsibleName = () => {
-        // Se o projeto tem o mesmo ID do usuário logado, mostramos o email dele
         if (currentUser && data.owner_uid === currentUser.uid) {
             return currentUser.email;
         }
-        // Se for um projeto antigo ou de outro usuário (modo admin), mostramos o ID ou um fallback
         return data.owner_uid || 'Anônimo';
     };
 
     const results = data.results;
     const complexity = data.complexity_score;
     const inputs = data.inputs_as_is;
-    const strategic = data.strategic_analysis || {}; // Dados calculados da estratégia
+    const strategic = data.strategic_analysis || {};
+    const strategicInput = data.strategic_input || {};
+    const maintenanceAnalysis = data.maintenance_analysis || {};
 
     // Dados gráficos
     const costComparisonData = [
@@ -59,18 +131,30 @@ export default function ResultsDashboard({ data, onNewCalculation }) {
         { name: 'Manutenção', value: results.cost_breakdown.maintenanceCost },
     ];
 
-    // Adicionar custos de IA se existirem
     if (strategic.genAiCost > 0) toBeCostBreakdown.push({ name: 'GenAI (Tokens)', value: strategic.genAiCost * 12 });
     if (strategic.idpCost > 0) toBeCostBreakdown.push({ name: 'IDP (OCR)', value: strategic.idpCost * 12 });
 
+    // --- LÓGICA DO PAYBACK (Breakeven Chart) ---
+    // Gráfico de Custo Acumulado: AS-IS vs TO-BE
     const paybackData = [];
-    const monthlySavings = results.monthly_savings;
-    let accumulated = -results.development_cost;
-    const monthsToProject = Math.max(Math.ceil(results.payback_months || 0) + 2, 12);
+    const monthlyAsIs = results.as_is_cost_annual / 12;
+    const monthlyToBe = results.to_be_cost_annual / 12;
+    const capex = results.development_cost;
+
+    // Projetar 24 meses ou até o payback + 6 meses
+    const monthsToProject = Math.max(Math.ceil(results.payback_months || 0) + 6, 18);
 
     for (let month = 0; month <= monthsToProject; month++) {
-        accumulated += monthlySavings;
-        paybackData.push({ month: month, accumulated: accumulated });
+        const cumulativeAsIs = monthlyAsIs * month;
+        const cumulativeToBe = capex + (monthlyToBe * month);
+
+        paybackData.push({
+            month: month,
+            asIs: cumulativeAsIs,
+            toBe: cumulativeToBe,
+            // Mantendo o fluxo de caixa líquido se quiser usar
+            netCashFlow: cumulativeAsIs - cumulativeToBe
+        });
     }
 
     const COLORS = ['#667eea', '#764ba2', '#f093fb', '#ff9800', '#e91e63'];
@@ -92,442 +176,670 @@ export default function ResultsDashboard({ data, onNewCalculation }) {
         return map[classification] || classification;
     };
 
-    // --- FUNÇÃO DE EXPORTAÇÃO PDF ---
+    // --- FUNÇÃO DE EXPORTAÇÃO PDF COM QUEBRA DE PÁGINA INTELIGENTE ---
     const handleExportPDF = async () => {
         if (!dashboardRef.current) return;
         setIsExporting(true);
 
         try {
-            const element = dashboardRef.current;
+            const originalElement = dashboardRef.current;
 
-            const canvas = await html2canvas(element, {
+            // 1. Criar um clone para manipular (evita alterações visuais para o usuário)
+            const clone = originalElement.cloneNode(true);
+
+            // Copiar o conteúdo dos canvas (gráficos) manualmente, pois cloneNode não copia o estado do contexto 2D
+            const originalCanvases = originalElement.querySelectorAll('canvas');
+            const cloneCanvases = clone.querySelectorAll('canvas');
+            originalCanvases.forEach((canvas, index) => {
+                const dest = cloneCanvases[index];
+                if (dest) {
+                    const ctx = dest.getContext('2d');
+                    ctx.drawImage(canvas, 0, 0);
+                }
+            });
+
+            // Configurar o clone para ser renderizado fora da tela, mas com a mesma largura
+            const contentWidth = originalElement.scrollWidth;
+            clone.style.width = `${contentWidth}px`;
+            clone.style.position = 'absolute';
+            clone.style.top = '-9999px';
+            clone.style.left = '-9999px';
+            // Importante: manter o background para o html2canvas capturar corretamente
+            clone.style.backgroundColor = '#f5f7fa';
+            document.body.appendChild(clone);
+
+            // 2. Calcular altura da página A4 em pixels
+            // A4: 210mm largura, 297mm altura. Ratio = 1.414
+            // A altura da página em pixels depende da largura do conteúdo renderizado
+            const a4Ratio = 297 / 210;
+            const pageHeightPx = contentWidth * a4Ratio;
+
+            // 3. Inserir espaçadores para evitar cortes
+            const sections = clone.querySelectorAll('.pdf-section');
+            let currentHeight = 0;
+
+            // Adicionar padding inicial do container se houver
+            const containerStyle = window.getComputedStyle(originalElement);
+            currentHeight += parseFloat(containerStyle.paddingTop) || 0;
+
+            sections.forEach((section) => {
+                // Altura do elemento + margens
+                const style = window.getComputedStyle(section);
+                const marginTop = parseFloat(style.marginTop) || 0;
+                const marginBottom = parseFloat(style.marginBottom) || 0;
+                const sectionHeight = section.offsetHeight;
+                const elementTotalHeight = sectionHeight + marginTop + marginBottom;
+
+                // Posição atual na página (resto da divisão pela altura da página)
+                const positionOnPage = currentHeight % pageHeightPx;
+
+                // Se o elemento vai cruzar a quebra de página
+                if (positionOnPage + elementTotalHeight > pageHeightPx) {
+                    // Se o elemento for menor que uma página inteira, empurra para a próxima
+                    if (elementTotalHeight < pageHeightPx) {
+                        const spacerHeight = pageHeightPx - positionOnPage;
+
+                        // Adiciona margem extra ao topo do elemento para empurrá-lo
+                        // Precisamos somar à margem já existente
+                        section.style.marginTop = `${marginTop + spacerHeight}px`;
+
+                        // Atualiza a altura atual considerando o espaçador
+                        currentHeight += spacerHeight;
+                    }
+                }
+
+                currentHeight += elementTotalHeight;
+            });
+
+            // 4. Gerar Canvas a partir do Clone modificado
+            const canvas = await html2canvas(clone, {
                 scale: 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
-                windowWidth: element.scrollWidth,
-                windowHeight: element.scrollHeight
+                windowWidth: contentWidth,
+                windowHeight: clone.scrollHeight // Altura ajustada com espaçadores
             });
 
-            const imgData = canvas.toDataURL('image/png');
-            const pdfWidth = 210;
-            const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-            const pdf = new jsPDF('p', 'mm', [pdfWidth, imgHeight]);
+            // 5. Remover o clone
+            document.body.removeChild(clone);
 
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-            pdf.save(`Relatorio_ROI_${data.project_name.replace(/\s+/g, '_')}.pdf`);
+            // 6. Gerar PDF
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            const imgWidth = 210;
+            const pageHeight = 297;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft > 0) {
+                position -= pageHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+
+            pdf.save(`ROI_Report_${data.project_name || 'Project'}.pdf`);
 
         } catch (error) {
-            console.error("Erro ao gerar PDF:", error);
-            alert("Erro ao gerar o PDF.");
+            console.error('Erro ao gerar PDF:', error);
+            alert('Erro ao gerar PDF. Tente novamente.');
         } finally {
             setIsExporting(false);
         }
     };
 
     return (
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-            {/* Header / Ações */}
-            <Paper elevation={3} sx={{ p: 4, borderRadius: 2, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', mb: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-                    <Box>
-                        <Typography variant="h4" component="h1" gutterBottom fontWeight={700}>Resultados da Análise</Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9 }}>Visualização Web</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Button
-                            variant="contained"
-                            startIcon={isExporting ? <Refresh sx={{ animation: 'spin 1s linear infinite' }} /> : <Download />}
-                            onClick={handleExportPDF}
-                            disabled={isExporting}
-                            sx={{ backgroundColor: 'rgba(255,255,255,0.2)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' } }}
-                        >
-                            {isExporting ? 'Gerando PDF...' : 'Exportar PDF'}
-                        </Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<Refresh />}
-                            onClick={onNewCalculation}
-                            sx={{ backgroundColor: 'rgba(255,255,255,0.2)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' } }}
-                        >
-                            Nova Simulação
-                        </Button>
-                    </Box>
+        <Box sx={{ p: 3, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
+            {/* BARRA DE AÇÕES SUPERIOR */}
+            <Paper elevation={0} sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Assessment color="primary" sx={{ mr: 1, fontSize: 30 }} />
+                    <Typography variant="h5" fontWeight="bold" color="text.primary">
+                        Dashboard de Resultados
+                    </Typography>
+                </Box>
+                <Box>
+                    <Button
+                        variant="outlined"
+                        startIcon={<Refresh />}
+                        onClick={onNewCalculation}
+                        sx={{ mr: 2 }}
+                    >
+                        Nova Simulação
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={isExporting ? <Download /> : <Download />}
+                        onClick={handleExportPDF}
+                        disabled={isExporting}
+                    >
+                        {isExporting ? 'Gerando PDF...' : 'Exportar Relatório'}
+                    </Button>
                 </Box>
             </Paper>
 
-            {/* ÁREA DE CAPTURA PARA O PDF */}
-            <div ref={dashboardRef} style={{ backgroundColor: '#f4f6f8', padding: '30px' }}>
+            {/* CONTEÚDO DO RELATÓRIO (REF PARA PDF) */}
+            <div ref={dashboardRef} style={{ backgroundColor: '#f5f7fa', padding: '20px' }}>
 
-                {/* CABEÇALHO DO RELATÓRIO */}
-                <Box
-                    sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-end',
-                        mb: 4,
-                        borderBottom: '2px solid #1a237e',
-                        pb: 2
-                    }}
-                >
+                {/* CABEÇALHO DO RELATÓRIO PDF */}
+                <Box className="pdf-section" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, borderBottom: '2px solid #1a237e', pb: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <img src="/logo.png" alt="NTT DATA" style={{ height: '40px', marginRight: '15px' }} />
+                        <img src="/logo.png" alt="Logo" style={{ height: 50, marginRight: 20 }} />
                         <Box>
-                            <Typography variant="h5" color="primary" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
-                                Relatório de Viabilidade RPA
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                                Gerado em: {new Date().toLocaleDateString()} às {new Date().toLocaleTimeString()}
-                            </Typography>
+                            <Typography variant="h5" fontWeight="bold" color="primary.main">Proposta de Automação</Typography>
+                            <Typography variant="subtitle2" color="text.secondary">RPA Calculator</Typography>
                         </Box>
                     </Box>
-
-                    {/* LADO DIREITO: Nome do Projeto e Responsável CORRIGIDO */}
                     <Box sx={{ textAlign: 'right' }}>
-                        <Typography variant="h6" fontWeight="bold" color="text.primary" sx={{ lineHeight: 1.2 }}>
-                            {data.project_name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                            Responsável: {getResponsibleName()}
-                        </Typography>
+                        <Typography variant="body2"><strong>Projeto:</strong> {data.project_name}</Typography>
+                        <Typography variant="body2"><strong>Responsável:</strong> {getResponsibleName()}</Typography>
+                        <Typography variant="body2"><strong>Data:</strong> {new Date().toLocaleString()}</Typography>
                     </Box>
                 </Box>
 
-                {/* RESTANTE DO DASHBOARD (Mantido igual) */}
-                <Grid container spacing={3} sx={{ mb: 3 }}>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', height: '100%' }}>
+                {/* CABEÇALHO DO PROJETO */}
+                <Paper className="pdf-section" elevation={3} sx={{ p: 3, mb: 3, borderRadius: 2, borderLeft: '6px solid #1a237e' }}>
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} md={8}>
+                            <Typography variant="h4" fontWeight="bold" color="#1a237e" gutterBottom>
+                                {data.project_name || 'Projeto Sem Nome'}
+                            </Typography>
+                            <Typography variant="subtitle1" color="text.secondary">
+                                Responsável: <strong>{getResponsibleName()}</strong>
+                            </Typography>
+                            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                                <Chip label={`Complexidade: ${getComplexityLabel(complexity.classification)}`} color={getComplexityColor(complexity.classification)} sx={{ fontWeight: 'bold' }} />
+                                <Chip label={`Score: ${complexity.total_points} pts`} variant="outlined" />
+                            </Box>
+                        </Grid>
+                        <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+                            <Typography variant="h6" color="text.secondary">ROI Estimado (1º Ano)</Typography>
+                            <Typography variant="h3" fontWeight="bold" color={results.roi_year_1 >= 0 ? 'success.main' : 'error.main'}>
+                                {formatNumber(results.roi_year_1)}%
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Payback em {formatNumber(results.payback_months)} meses
+                            </Typography>
+                        </Grid>
+                    </Grid>
+                </Paper>
+
+                {/* KPI CARDS */}
+                <Grid container spacing={3} sx={{ mb: 3 }} className="pdf-section">
+                    <Grid item xs={12} md={3}>
+                        <Card sx={{ height: '100%', borderTop: '4px solid #f44336' }}>
                             <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                    <TrendingUp sx={{ mr: 1 }} />
-                                    <Typography variant="body2" sx={{ opacity: 0.9 }}>ROI Ano 1</Typography>
-                                </Box>
-                                <Typography variant="h3" fontWeight={700}>{formatNumber(results.roi_year_1)}%</Typography>
-                                <Chip label={results.roi_year_1 >= 100 ? 'Excelente' : results.roi_year_1 >= 50 ? 'Bom' : 'Atenção'} size="small" sx={{ mt: 1, backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+                                <Typography color="text.secondary" gutterBottom>Custo AS-IS (Anual)</Typography>
+                                <Typography variant="h5" fontWeight="bold">{formatCurrency(results.as_is_cost_annual)}</Typography>
+                                <Typography variant="caption" color="text.secondary">Processo Manual</Typography>
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%' }}>
+                    <Grid item xs={12} md={3}>
+                        <Card sx={{ height: '100%', borderTop: '4px solid #4caf50' }}>
                             <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                    <AttachMoney sx={{ mr: 1, color: 'success.main' }} />
-                                    <Typography variant="body2" color="text.secondary">Economia Anual</Typography>
-                                </Box>
-                                <Typography variant="h4" fontWeight={700} color="success.main">{formatCurrency(results.annual_savings)}</Typography>
-                                <Typography variant="caption" color="text.secondary">{formatCurrency(results.monthly_savings)}/mês</Typography>
+                                <Typography color="text.secondary" gutterBottom>Economia Anual</Typography>
+                                <Typography variant="h5" fontWeight="bold" color="success.main">{formatCurrency(results.annual_savings)}</Typography>
+                                <Typography variant="caption" color="text.secondary">Saving Bruto</Typography>
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%' }}>
+                    <Grid item xs={12} md={3}>
+                        <Card sx={{ height: '100%', borderTop: '4px solid #ff9800' }}>
                             <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                    <Schedule sx={{ mr: 1, color: 'info.main' }} />
-                                    <Typography variant="body2" color="text.secondary">Payback</Typography>
-                                </Box>
-                                <Typography variant="h4" fontWeight={700} color="info.main">{formatNumber(results.payback_months)}</Typography>
-                                <Typography variant="caption" color="text.secondary">meses</Typography>
+                                <Typography color="text.secondary" gutterBottom>Investimento (CAPEX)</Typography>
+                                <Typography variant="h5" fontWeight="bold">{formatCurrency(results.development_cost)}</Typography>
+                                <Typography variant="caption" color="text.secondary">Desenvolvimento</Typography>
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ height: '100%' }}>
+                    <Grid item xs={12} md={3}>
+                        <Card sx={{ height: '100%', borderTop: '4px solid #2196f3' }}>
                             <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                    <Assessment sx={{ mr: 1, color: getComplexityColor(complexity.classification) }} />
-                                    <Typography variant="body2" color="text.secondary">Complexidade</Typography>
-                                </Box>
-                                <Typography variant="h4" fontWeight={700}>{getComplexityLabel(complexity.classification)}</Typography>
-                                <Typography variant="caption" color="text.secondary">{complexity.hours.totalHours}h desenvolvimento</Typography>
+                                <Typography color="text.secondary" gutterBottom>Custo TO-BE (Anual)</Typography>
+                                <Typography variant="h5" fontWeight="bold">{formatCurrency(results.to_be_cost_annual)}</Typography>
+                                <Typography variant="caption" color="text.secondary">Sustentação + Infra</Typography>
                             </CardContent>
                         </Card>
                     </Grid>
                 </Grid>
 
-                <Grid container spacing={3} sx={{ mb: 3 }}>
+                {/* GRÁFICOS */}
+                <Grid container spacing={3} sx={{ mb: 3 }} className="pdf-section">
+                    {/* Gráfico de Comparação de Custos */}
                     <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 3, borderRadius: 2 }}>
-                            <Typography variant="h6" fontWeight={600} gutterBottom>Comparação de Custos</Typography>
-                            <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={costComparisonData}>
+                        <Paper elevation={3} sx={{ p: 3, height: 400, borderRadius: 2 }}>
+                            <Typography variant="h6" gutterBottom fontWeight="bold">Comparativo Financeiro (Anual)</Typography>
+                            <ResponsiveContainer width="100%" height="90%">
+                                <BarChart data={costComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
-                                    <YAxis tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
+                                    <YAxis tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`} />
                                     <Tooltip formatter={(value) => formatCurrency(value)} />
                                     <Legend />
-                                    <Bar dataKey="Anual" fill="#667eea" />
-                                    <Bar dataKey="Mensal" fill="#764ba2" />
+                                    <Bar dataKey="Anual" fill="#1a237e" name="Custo Anual" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </Paper>
                     </Grid>
+
+                    {/* Gráfico de Payback (Breakeven) */}
                     <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 3, borderRadius: 2 }}>
-                            <Typography variant="h6" fontWeight={600} gutterBottom>Composição Custos TO-BE</Typography>
-                            <ResponsiveContainer width="100%" height={300}>
-                                <PieChart>
-                                    <Pie data={toBeCostBreakdown} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
-                                        {toBeCostBreakdown.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(value) => formatCurrency(value)} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </Paper>
-                    </Grid>
-                    <Grid item xs={12}>
-                        <Paper sx={{ p: 3, borderRadius: 2 }}>
-                            <Typography variant="h6" fontWeight={600} gutterBottom>Projeção de Payback</Typography>
-                            <ResponsiveContainer width="100%" height={300}>
-                                <LineChart data={paybackData}>
+                        <Paper elevation={3} sx={{ p: 3, height: 400, borderRadius: 2 }}>
+                            <Typography variant="h6" gutterBottom fontWeight="bold">Projeção de Payback (Breakeven)</Typography>
+                            <ResponsiveContainer width="100%" height="90%">
+                                <LineChart data={paybackData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="month" label={{ value: 'Meses', position: 'insideBottom', offset: -5 }} />
-                                    <YAxis tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
+                                    <XAxis dataKey="month" label={{ value: 'Mês', position: 'insideBottomRight', offset: -5 }} />
+                                    <YAxis tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`} />
                                     <Tooltip formatter={(value) => formatCurrency(value)} />
                                     <Legend />
-                                    <Line type="monotone" dataKey="accumulated" stroke="#667eea" strokeWidth={3} name="Economia Acumulada" />
-                                    <Line type="monotone" dataKey={() => 0} stroke="#ff0000" strokeDasharray="5 5" name="Break-even" />
+                                    <Line type="monotone" dataKey="asIs" stroke="#f44336" strokeWidth={2} name="Custo Acumulado AS-IS" dot={false} />
+                                    <Line type="monotone" dataKey="toBe" stroke="#2196f3" strokeWidth={2} name="Custo Acumulado TO-BE" dot={false} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </Paper>
                     </Grid>
                 </Grid>
 
-                <Paper sx={{ p: 3, borderRadius: 2, mb: 4 }}>
-                    <Typography variant="h6" fontWeight={600} gutterBottom>Detalhamento Financeiro</Typography>
-                    <Divider sx={{ mb: 2 }} />
-                    <Grid container spacing={3}>
-                        <Grid item xs={12} md={6}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>Investimento Inicial (CAPEX)</Typography>
-                            <Box sx={{ pl: 2 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography variant="body2">Esforço de Implementação ({complexity.hours.totalHours}h)</Typography>
-                                    <Typography variant="body2" fontWeight={600}>{formatCurrency(results.development_cost)}</Typography>
-                                </Box>
-                                <Divider sx={{ my: 1 }} />
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body1" fontWeight={600}>Total Investimento</Typography>
-                                    <Typography variant="body1" fontWeight={700} color="primary">{formatCurrency(results.development_cost)}</Typography>
-                                </Box>
+                {/* DETALHAMENTO DE CUSTOS */}
+                <Grid container spacing={3} sx={{ mb: 3 }} className="pdf-section">
+                    <Grid item xs={12} md={6}>
+                        <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
+                            <Typography variant="h6" gutterBottom fontWeight="bold">Composição do Custo TO-BE</Typography>
+                            <Box sx={{ height: 300 }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={toBeCostBreakdown}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={100}
+                                            fill="#8884d8"
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {toBeCostBreakdown.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(value) => formatCurrency(value)} />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
                             </Box>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>Custos Operacionais Anuais (OPEX)</Typography>
-                            <Box sx={{ pl: 2 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography variant="body2">Licenças RPA</Typography>
-                                    <Typography variant="body2" fontWeight={600}>{formatCurrency(results.cost_breakdown.licenseCost)}</Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography variant="body2">Infraestrutura</Typography>
-                                    <Typography variant="body2" fontWeight={600}>{formatCurrency(results.cost_breakdown.infraCost)}</Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography variant="body2">Manutenção e Sustentação</Typography>
-                                    <Typography variant="body2" fontWeight={600}>{formatCurrency(results.cost_breakdown.maintenanceCost)}</Typography>
-                                </Box>
-                                {strategic.genAiCost > 0 && (
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                        <Typography variant="body2">Custos GenAI (Tokens)</Typography>
-                                        <Typography variant="body2" fontWeight={600}>{formatCurrency(strategic.genAiCost * 12)}</Typography>
-                                    </Box>
-                                )}
-                                {strategic.idpCost > 0 && (
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                        <Typography variant="body2">Custos IDP (OCR)</Typography>
-                                        <Typography variant="body2" fontWeight={600}>{formatCurrency(strategic.idpCost * 12)}</Typography>
-                                    </Box>
-                                )}
-                                <Divider sx={{ my: 1 }} />
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body1" fontWeight={600}>Total Anual</Typography>
-                                    <Typography variant="body1" fontWeight={700} color="primary">{formatCurrency(results.to_be_cost_annual)}</Typography>
-                                </Box>
-                            </Box>
-                        </Grid>
+                        </Paper>
                     </Grid>
+
+                    <Grid item xs={12} md={6}>
+                        <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
+                            <Typography variant="h6" gutterBottom fontWeight="bold">Análise Estratégica</Typography>
+                            <List>
+                                <ListItem>
+                                    <ListItemIcon><Psychology color={strategic.genAiCost > 0 ? "primary" : "disabled"} /></ListItemIcon>
+                                    <ListItemText
+                                        primary="Inteligência Artificial (GenAI)"
+                                        secondary={
+                                            strategic.genAiCost > 0
+                                                ? `Custo estimado: ${formatCurrency(strategic.genAiCost * 12)}/ano`
+                                                : strategicInput.cognitiveLevel === 'creation'
+                                                    ? 'Habilitado (Custo Zero/Incluso)'
+                                                    : 'Regra Fixa (RPA Puro)'
+                                        }
+                                    />
+                                </ListItem>
+                                <Divider component="li" />
+
+                                <ListItem>
+                                    <ListItemIcon><CheckCircle color={strategic.riskCost > 0 ? "success" : "disabled"} /></ListItemIcon>
+                                    <ListItemText
+                                        primary="Redução de Risco (Compliance)"
+                                        secondary={
+                                            strategic.riskCost > 0
+                                                ? `Mitigação estimada em ${formatCurrency(strategic.riskCost)}/ano`
+                                                : strategicInput.errorCost > 0
+                                                    ? `Custo do Erro: ${formatCurrency(strategicInput.errorCost)} (Sem impacto calculado)`
+                                                    : 'Custo do Erro: R$ 0,00 (Não aplicável)'
+                                        }
+                                    />
+                                </ListItem>
+                                <Divider component="li" />
+
+                                <ListItem>
+                                    <ListItemIcon><CheckCircle color={strategic.turnoverCost > 0 ? "success" : "disabled"} /></ListItemIcon>
+                                    <ListItemText
+                                        primary="Redução de Turnover"
+                                        secondary={
+                                            strategic.turnoverCost > 0
+                                                ? `Economia de ${formatCurrency(strategic.turnoverCost)}/ano`
+                                                : strategicInput.turnoverRate > 0
+                                                    ? `Taxa: ${strategicInput.turnoverRate}% (Sem impacto calculado)`
+                                                    : 'Taxa: 0% (Não aplicável)'
+                                        }
+                                    />
+                                </ListItem>
+                                <Divider component="li" />
+
+                                <ListItem>
+                                    <ListItemIcon><Schedule color={strategic.slaMultiplier > 1 ? "warning" : "disabled"} /></ListItemIcon>
+                                    <ListItemText
+                                        primary="Disponibilidade 24/7"
+                                        secondary={
+                                            strategic.slaMultiplier > 1
+                                                ? 'Sim (Operação em 3 Turnos)'
+                                                : 'Não (Horário Comercial)'
+                                        }
+                                    />
+                                </ListItem>
+                            </List>
+                        </Paper>
+                    </Grid>
+                </Grid>
+
+                {/* PLANO DE ENTREGA (GANTT) */}
+                <Paper className="pdf-section" elevation={3} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                        <CalendarToday color="primary" sx={{ mr: 1 }} />
+                        <Typography variant="h6" fontWeight="bold">Plano de Entrega (Roadmap Estimado)</Typography>
+                    </Box>
+
+                    {loadingPlan ? (
+                        <LinearProgress />
+                    ) : (
+                        <Box sx={{ position: 'relative', mt: 2 }}>
+                            {/* Cabeçalho da Linha do Tempo */}
+                            <Box sx={{ display: 'flex', mb: 1, borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+                                <Box sx={{ width: '30%', fontWeight: 'bold', color: 'text.secondary' }}>Fase / Atividade</Box>
+                                <Box sx={{ width: '20%', fontWeight: 'bold', color: 'text.secondary' }}>Responsável</Box>
+                                <Box sx={{ width: '15%', fontWeight: 'bold', color: 'text.secondary', textAlign: 'center' }}>Duração</Box>
+                                <Box sx={{ width: '35%', fontWeight: 'bold', color: 'text.secondary' }}>Cronograma (Dias Úteis)</Box>
+                            </Box>
+
+                            {/* Linhas do Gantt */}
+                            {deliveryPlan.map((item, index) => {
+                                const totalDays = deliveryPlan.reduce((acc, curr) => acc + curr.duration, 0);
+                                const totalWeeks = Math.ceil(totalDays / 5);
+                                const leftPercent = (item.start / totalDays) * 100;
+                                const widthPercent = (item.duration / totalDays) * 100;
+
+                                return (
+                                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 2, '&:hover': { bgcolor: '#f5f5f5' }, borderRadius: 1, p: 1 }}>
+                                        <Box sx={{ width: '30%' }}>
+                                            <Typography variant="body2" fontWeight="bold">{item.phase}</Typography>
+                                        </Box>
+                                        <Box sx={{ width: '20%' }}>
+                                            <Typography variant="caption" sx={{ bgcolor: '#e0e0e0', px: 1, py: 0.5, borderRadius: 1 }}>
+                                                {item.role}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ width: '15%', textAlign: 'center' }}>
+                                            <Typography variant="body2">{item.duration} dias</Typography>
+                                        </Box>
+                                        <Box sx={{ width: '35%', position: 'relative', height: 24, bgcolor: '#f0f0f0', borderRadius: 4, overflow: 'hidden' }}>
+                                            {/* Grid de Semanas no Fundo */}
+                                            <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex' }}>
+                                                {Array.from({ length: totalWeeks }).map((_, w) => (
+                                                    <Box key={w} sx={{ flex: 1, borderRight: '1px dashed #ccc', height: '100%' }} />
+                                                ))}
+                                            </Box>
+
+                                            <MuiTooltip title={`Início: Dia ${item.start} | Fim: Dia ${item.start + item.duration}`}>
+                                                <Box
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        left: `${leftPercent}%`,
+                                                        width: `${widthPercent}%`,
+                                                        height: '100%',
+                                                        bgcolor: item.color,
+                                                        borderRadius: 4,
+                                                        zIndex: 1,
+                                                        transition: 'width 0.5s ease-in-out'
+                                                    }}
+                                                />
+                                            </MuiTooltip>
+                                        </Box>
+                                    </Box>
+                                );
+                            })}
+
+                            {/* Legenda de Semanas */}
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                                <Box sx={{ width: '35%', display: 'flex', justifyContent: 'space-between' }}>
+                                    {Array.from({ length: Math.min(Math.ceil(deliveryPlan.reduce((a, b) => a + b.duration, 0) / 5), 8) }).map((_, i) => (
+                                        <Typography key={i} variant="caption" color="text.secondary" sx={{ flex: 1, textAlign: 'center' }}>
+                                            Sem {i + 1}
+                                        </Typography>
+                                    ))}
+                                </Box>
+                            </Box>
+
+                            <Box sx={{ mt: 2, textAlign: 'right' }}>
+                                <Typography variant="caption" color="text.secondary">
+                                    * Estimativa em dias úteis baseada na alocação de horas por perfil. Total Estimado: <strong>{deliveryPlan.reduce((a, b) => a + b.duration, 0)} dias úteis</strong>.
+                                </Typography>
+                            </Box>
+                        </Box>
+                    )}
                 </Paper>
 
-                <Paper sx={{ p: 4, borderRadius: 2, backgroundColor: '#fff', borderTop: '4px solid #667eea' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <Description color="primary" sx={{ mr: 1 }} />
-                        <Typography variant="h6" fontWeight="bold" color="primary">
-                            Metodologia e Memória de Cálculo
-                        </Typography>
+                {/* PROPOSTA DE SUSTENTAÇÃO - NEW SECTION */}
+                <Paper className="pdf-section" elevation={3} sx={{ p: 3, mb: 3, borderRadius: 2, borderTop: '4px solid #00bcd4' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                        <SupportAgent sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+                        <Box>
+                            <Typography variant="h6" fontWeight="bold">
+                                Proposta de Sustentação
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Custos e escopo do serviço de manutenção (Pós-GoLive)
+                            </Typography>
+                        </Box>
                     </Box>
-                    <Divider sx={{ mb: 3 }} />
 
-                    <Grid container spacing={4}>
+                    <Grid container spacing={3} alignItems="center" sx={{ mb: 3 }}>
                         <Grid item xs={12} md={6}>
-                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ color: '#1a237e' }}>
-                                1. Entradas (Inputs)
-                            </Typography>
-                            <Table size="small">
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell component="th" scope="row" sx={{ fontWeight: 'bold', width: '40%' }}>Volume Mensal</TableCell>
-                                        <TableCell>Quantidade média de transações processadas por mês ({inputs.volume.toLocaleString()}).</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell component="th" scope="row" sx={{ fontWeight: 'bold' }}>AHT (Tempo Médio)</TableCell>
-                                        <TableCell>Average Handle Time: Tempo que um humano leva para processar um item ({inputs.aht} min).</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell component="th" scope="row" sx={{ fontWeight: 'bold' }}>Custo FTE</TableCell>
-                                        <TableCell>Custo mensal total de um funcionário (Full Time Equivalent) incluindo encargos ({formatCurrency(inputs.fte_cost)}).</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell component="th" scope="row" sx={{ fontWeight: 'bold' }}>Taxa de Erro</TableCell>
-                                        <TableCell>Percentual de retrabalho ou erro no processo manual ({inputs.error_rate}%).</TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ color: '#1a237e' }}>
-                                2. Matriz de Complexidade
-                            </Typography>
-                            <Typography variant="body2" paragraph>
-                                A complexidade é calculada somando pontos baseados em: Nº de Aplicações, Tipo de Dados, Ambiente e Nº de Passos.
-                            </Typography>
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow sx={{ bgcolor: '#f0f0f0' }}>
-                                        <TableCell sx={{ fontWeight: 'bold' }}>Classificação</TableCell>
-                                        <TableCell sx={{ fontWeight: 'bold' }}>Pontuação</TableCell>
-                                        <TableCell sx={{ fontWeight: 'bold' }}>Horas Estimadas</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    <TableRow selected={complexity.classification === 'VERY_SIMPLE'}>
-                                        <TableCell>MUITO SIMPLES</TableCell>
-                                        <TableCell>&lt; 6 pontos</TableCell>
-                                        <TableCell>40h</TableCell>
-                                    </TableRow>
-                                    <TableRow selected={complexity.classification === 'SIMPLE'}>
-                                        <TableCell>SIMPLES</TableCell>
-                                        <TableCell>6 - 8 pontos</TableCell>
-                                        <TableCell>80h</TableCell>
-                                    </TableRow>
-                                    <TableRow selected={complexity.classification === 'MEDIUM'}>
-                                        <TableCell>MÉDIA</TableCell>
-                                        <TableCell>9 - 11 pontos</TableCell>
-                                        <TableCell>160h</TableCell>
-                                    </TableRow>
-                                    <TableRow selected={complexity.classification === 'COMPLEX'}>
-                                        <TableCell>COMPLEXA</TableCell>
-                                        <TableCell>12 - 14 pontos</TableCell>
-                                        <TableCell>320h</TableCell>
-                                    </TableRow>
-                                    <TableRow selected={complexity.classification === 'VERY_COMPLEX'}>
-                                        <TableCell>MUITO COMPLEXA</TableCell>
-                                        <TableCell>&gt; 14 pontos</TableCell>
-                                        <TableCell>640h</TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </Grid>
-
-                        {/* NOVA SEÇÃO: Impactos Estratégicos */}
-                        <Grid item xs={12}>
-                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ color: '#1a237e', mt: 2 }}>
-                                3. Impactos Estratégicos e Intangíveis
-                            </Typography>
-                            <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', border: '1px dashed #94a3b8' }}>
-                                <Grid container spacing={2}>
-                                    <Grid item xs={12} md={6}>
-                                        <List dense>
-                                            <ListItem>
-                                                <ListItemIcon><CheckCircle fontSize="small" color="success" /></ListItemIcon>
-                                                <ListItemText
-                                                    primary="Custo de Risco Evitado"
-                                                    secondary={strategic.riskCost ? `${formatCurrency(strategic.riskCost)} / mês` : 'Não calculado'}
-                                                />
-                                            </ListItem>
-                                            <ListItem>
-                                                <ListItemIcon><CheckCircle fontSize="small" color="success" /></ListItemIcon>
-                                                <ListItemText
-                                                    primary="Soft Savings (Turnover)"
-                                                    secondary={strategic.turnoverCost ? `${formatCurrency(strategic.turnoverCost)} / ano` : 'Não calculado'}
-                                                />
-                                            </ListItem>
-                                            <ListItem>
-                                                <ListItemIcon><CheckCircle fontSize="small" color="success" /></ListItemIcon>
-                                                <ListItemText
-                                                    primary="Multiplicador de Turno (SLA)"
-                                                    secondary={strategic.slaMultiplier > 1 ? `3x (Cobre 3 turnos)` : '1x (Horário Comercial)'}
-                                                />
-                                            </ListItem>
-                                        </List>
-                                    </Grid>
-                                    <Grid item xs={12} md={6}>
-                                        <List dense>
-                                            <ListItem>
-                                                <ListItemIcon><Psychology fontSize="small" color="action" /></ListItemIcon>
-                                                <ListItemText
-                                                    primary="Custo GenAI (IA Generativa)"
-                                                    secondary={strategic.genAiCost > 0 ? `${formatCurrency(strategic.genAiCost)} / mês` : 'N/A'}
-                                                />
-                                            </ListItem>
-                                            <ListItem>
-                                                <ListItemIcon><Settings fontSize="small" color="action" /></ListItemIcon>
-                                                <ListItemText
-                                                    primary="Custo IDP (Processamento Inteligente)"
-                                                    secondary={strategic.idpCost > 0 ? `${formatCurrency(strategic.idpCost)} / mês` : 'N/A'}
-                                                />
-                                            </ListItem>
-                                        </List>
-                                    </Grid>
-                                </Grid>
+                            <Paper elevation={0} sx={{ p: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                                <Typography variant="subtitle2" fontWeight={600} gutterBottom color="primary.dark">
+                                    Investimento Previsto
+                                </Typography>
+                                <Box sx={{ display: 'flex', gap: 4, mt: 1 }}>
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" display="block">Mensal</Typography>
+                                        <Typography variant="h5" fontWeight={700} color="primary.main">
+                                            {formatCurrency(maintenanceAnalysis.monthlyCost || 0)}
+                                        </Typography>
+                                    </Box>
+                                    <Divider orientation="vertical" flexItem />
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" display="block">Anual</Typography>
+                                        <Typography variant="h5" fontWeight={700} color="primary.main">
+                                            {formatCurrency(maintenanceAnalysis.annualCost || 0)}
+                                        </Typography>
+                                    </Box>
+                                </Box>
                             </Paper>
                         </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Box sx={{ p: 2, bgcolor: '#fff', borderRadius: 1, border: '1px dashed #cbd5e1' }}>
+                                <Typography variant="body2" color="text.secondary">
+                                    <strong>Dimensionamento:</strong> Este robô utiliza <strong>1/{maintenanceAnalysis.capacityDivisor || 1}</strong> da capacidade de um FTE de sustentação, baseado em sua complexidade <strong>{getComplexityLabel(complexity.classification)}</strong>.
+                                </Typography>
+                            </Box>
+                        </Grid>
+                    </Grid>
+
+                    <Paper elevation={0} sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <Business color="secondary" sx={{ mr: 1 }} />
+                            <Typography variant="subtitle1" fontWeight={600}>
+                                Escopo Base do Serviço
+                            </Typography>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <AccessTime sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
+                            <Typography variant="body2" fontWeight={600}>
+                                Atendimento 5x8 em Horário Comercial
+                            </Typography>
+                        </Box>
+
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="subtitle2" gutterBottom sx={{ color: 'success.main', display: 'flex', alignItems: 'center' }}>
+                                    <Engineering fontSize="small" sx={{ mr: 1 }} />
+                                    Incluso (Responsabilidade da Sustentação)
+                                </Typography>
+                                <List dense>
+                                    <ListItem alignItems="flex-start" sx={{ px: 0 }}>
+                                        <ListItemIcon sx={{ minWidth: 30 }}><CheckCircle fontSize="small" color="success" /></ListItemIcon>
+                                        <ListItemText primary="Suporte N2 (Incidentes)" secondary="Análise de falhas, reprocessamento e correções de bugs." />
+                                    </ListItem>
+                                    <ListItem alignItems="flex-start" sx={{ px: 0 }}>
+                                        <ListItemIcon sx={{ minWidth: 30 }}><CheckCircle fontSize="small" color="success" /></ListItemIcon>
+                                        <ListItemText primary="Suporte N3 (Evolutivo)" secondary="Ajustes de código, atualizações de infra e melhorias." />
+                                    </ListItem>
+                                    <ListItem alignItems="flex-start" sx={{ px: 0 }}>
+                                        <ListItemIcon sx={{ minWidth: 30 }}><CheckCircle fontSize="small" color="success" /></ListItemIcon>
+                                        <ListItemText primary="Monitoramento Proativo" secondary="Saúde dos robôs e infraestrutura." />
+                                    </ListItem>
+                                </List>
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="subtitle2" gutterBottom sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
+                                    <Security fontSize="small" sx={{ mr: 1 }} />
+                                    Não Incluso (Responsabilidade do Cliente)
+                                </Typography>
+                                <List dense>
+                                    <ListItem alignItems="flex-start" sx={{ px: 0 }}>
+                                        <ListItemIcon sx={{ minWidth: 30 }}><Info fontSize="small" color="disabled" /></ListItemIcon>
+                                        <ListItemText primary="Suporte N1 (Negócio)" secondary="Dúvidas de regra, validação de dados e gestão de acessos." />
+                                    </ListItem>
+                                    <ListItem alignItems="flex-start" sx={{ px: 0 }}>
+                                        <ListItemIcon sx={{ minWidth: 30 }}><Info fontSize="small" color="disabled" /></ListItemIcon>
+                                        <ListItemText primary="Infraestrutura" secondary="Servidores, licenças de SO e banco de dados." />
+                                    </ListItem>
+                                </List>
+                            </Grid>
+                        </Grid>
+                    </Paper>
+                </Paper>
+
+                {/* MEMÓRIA DE CÁLCULO - NEW SECTION */}
+                <Paper className="pdf-section" elevation={3} sx={{ p: 3, mb: 3, borderRadius: 2, bgcolor: '#fff3e0' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Description color="warning" sx={{ mr: 1 }} />
+                        <Typography variant="h6" fontWeight="bold">Memória de Cálculo</Typography>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" paragraph>
+                        Detalhamento das fórmulas utilizadas para gerar os indicadores deste relatório.
+                    </Typography>
+
+                    <Grid container spacing={3}>
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>1. Cálculo AS-IS (Processo Manual)</Typography>
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table size="small">
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell>Volume Mensal</TableCell>
+                                            <TableCell align="right">Input do Usuário</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>Tempo por Transação</TableCell>
+                                            <TableCell align="right">Input do Usuário</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>Horas Totais Mensais</TableCell>
+                                            <TableCell align="right"><code>(Volume Mensal × Tempo Médio) ÷ 60</code></TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>Custo FTE (Mensal)</TableCell>
+                                            <TableCell align="right">Input do Usuário</TableCell>
+                                        </TableRow>
+                                        <TableRow sx={{ bgcolor: '#fffde7' }}>
+                                            <TableCell><strong>Custo Anual Total</strong></TableCell>
+                                            <TableCell align="right"><code>(Horas Mensais × Custo Hora FTE) × 12</code></TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>2. Cálculo TO-BE (Automação)</Typography>
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table size="small">
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell>Licenciamento (Anual)</TableCell>
+                                            <TableCell align="right"><code>Custo Licença × Quantidade Robôs</code></TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>Infraestrutura (Anual)</TableCell>
+                                            <TableCell align="right"><code>Custo Infra × Quantidade Robôs</code></TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>Manutenção (Anual)</TableCell>
+                                            <TableCell align="right"><code>Custo Sustentação Mensal × 12</code></TableCell>
+                                        </TableRow>
+                                        {strategic.genAiCost > 0 && (
+                                            <TableRow>
+                                                <TableCell>Custos GenAI (Anual)</TableCell>
+                                                <TableCell align="right"><code>Custo Mensal Tokens × 12</code></TableCell>
+                                            </TableRow>
+                                        )}
+                                        <TableRow sx={{ bgcolor: '#e3f2fd' }}>
+                                            <TableCell><strong>Custo Anual Total</strong></TableCell>
+                                            <TableCell align="right"><code>Licenças + Infra + Manutenção + GenAI</code></TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Grid>
 
                         <Grid item xs={12}>
-                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ color: '#1a237e', mt: 2 }}>
-                                4. Fórmulas Utilizadas
-                            </Typography>
-                            <Grid container spacing={2}>
-                                <Grid item xs={12} md={4}>
-                                    <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9' }}>
-                                        <Typography variant="subtitle2" fontWeight="bold" color="primary">Custo AS-IS (Manual)</Typography>
-                                        <Typography variant="caption" display="block" sx={{ mt: 1, fontStyle: 'italic' }}>
-                                            (Volume × AHT × 12) × Custo_Minuto × (1 + Erro) × SLA_Mult
+                            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>3. Indicadores Financeiros</Typography>
+                            <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12} md={4}>
+                                        <Typography variant="caption" display="block" color="text.secondary">ROI (Retorno sobre Investimento)</Typography>
+                                        <Typography variant="body2" fontWeight="bold">
+                                            <code>(Economia Anual / Custo AS-IS) × 100</code>
                                         </Typography>
-                                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                                            Considera agora o multiplicador de turnos (SLA) e a taxa de erro.
+                                    </Grid>
+                                    <Grid item xs={12} md={4}>
+                                        <Typography variant="caption" display="block" color="text.secondary">Economia Anual (Saving)</Typography>
+                                        <Typography variant="body2" fontWeight="bold">
+                                            <code>Custo AS-IS - Custo TO-BE</code>
                                         </Typography>
-                                    </Paper>
+                                    </Grid>
+                                    <Grid item xs={12} md={4}>
+                                        <Typography variant="caption" display="block" color="text.secondary">Payback (Retorno)</Typography>
+                                        <Typography variant="body2" fontWeight="bold">
+                                            <code>Mês onde Economia Acumulada {'>'} CAPEX</code>
+                                        </Typography>
+                                    </Grid>
                                 </Grid>
-                                <Grid item xs={12} md={4}>
-                                    <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9' }}>
-                                        <Typography variant="subtitle2" fontWeight="bold" color="primary">Investimento (CAPEX)</Typography>
-                                        <Typography variant="caption" display="block" sx={{ mt: 1, fontStyle: 'italic' }}>
-                                            Σ (Horas × %Participação × Taxa)
-                                        </Typography>
-                                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                                            Soma do custo de cada perfil baseado em sua participação na complexidade específica.
-                                        </Typography>
-                                    </Paper>
-                                </Grid>
-                                <Grid item xs={12} md={4}>
-                                    <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9' }}>
-                                        <Typography variant="subtitle2" fontWeight="bold" color="primary">Retorno (ROI)</Typography>
-                                        <Typography variant="caption" display="block" sx={{ mt: 1, fontStyle: 'italic' }}>
-                                            ((Economia - Investimento) / Investimento) × 100
-                                        </Typography>
-                                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                                            Economia = (Custo AS-IS + Risco + Turnover) - (Custo TO-BE + GenAI + IDP).
-                                        </Typography>
-                                    </Paper>
-                                </Grid>
-                            </Grid>
+                            </Box>
                         </Grid>
                     </Grid>
                 </Paper>
-            </div>
-        </Container>
+
+                <Box className="pdf-section" sx={{ mt: 4, textAlign: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">
+                        Relatório gerado automaticamente pelo RPA Calculator em {new Date().toLocaleDateString()}.
+                    </Typography>
+                </Box>
+            </div >
+        </Box >
     );
 }
