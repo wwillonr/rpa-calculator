@@ -366,6 +366,78 @@ export default function Settings() {
                         </Grid>
                     </Grid>
                 </Box>
+
+                {/* CARD EXPLICATIVO DA MATRIZ DE COMPLEXIDADE */}
+                <Box sx={{ mt: 4, p: 3, bgcolor: '#fff3e0', borderRadius: 2, borderLeft: '4px solid #ed6c02' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Functions color="warning" sx={{ mr: 1 }} />
+                        <Typography variant="subtitle1" fontWeight="bold" color="warning.main">
+                            Matriz de Classificação de Complexidade (Sistema de Pontos)
+                        </Typography>
+                    </Box>
+                    <Typography variant="body2" paragraph>
+                        A complexidade é determinada pela soma de pontos de 4 critérios técnicos.
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Critérios de Pontuação:</Typography>
+                            <Table size="small" sx={{ bgcolor: 'white', borderRadius: 1 }}>
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell component="th" scope="row" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>1. Nº Aplicações</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}>Até 2 (+1) | Até 4 (+2) | 5+ (+3)</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell component="th" scope="row" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>2. Tipo de Dados</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}>Estruturado (+1) | Texto (+2) | OCR/Imagem (+5)</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell component="th" scope="row" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>3. Ambiente</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}>Web (+1) | SAP/ERP (+2) | Citrix/Remoto (+4)</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell component="th" scope="row" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>4. Nº Passos</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}>&lt;20 (+1) | 20-50 (+3) | &gt;50 (+5)</TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Faixas de Classificação:</Typography>
+                            <Table size="small" sx={{ bgcolor: 'white', borderRadius: 1 }}>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Pontos Totais</TableCell>
+                                        <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>Nível Resultante</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}>&lt; 6 pontos</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}><Chip label="MUITO SIMPLES" size="small" color="success" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} /></TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}>6 a 8 pontos</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}><Chip label="SIMPLES" size="small" color="success" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} /></TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}>9 a 11 pontos</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}><Chip label="MÉDIA" size="small" color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} /></TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}>12 a 14 pontos</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}><Chip label="COMPLEXA" size="small" color="error" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} /></TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}>&gt; 14 pontos</TableCell>
+                                        <TableCell sx={{ fontSize: '0.75rem' }}><Chip label="MUITO COMPLEXA" size="small" color="error" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} /></TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </Grid>
+                    </Grid>
+                </Box>
             </Paper>
 
             {/* SEÇÃO 3: CUSTOS DE INFRA */}
