@@ -23,6 +23,7 @@ export default function ResultsDashboard({ data, onNewCalculation }) {
     const [isExporting, setIsExporting] = useState(false);
     const [deliveryPlan, setDeliveryPlan] = useState([]);
     const [loadingPlan, setLoadingPlan] = useState(true);
+    const [maintenanceConfig, setMaintenanceConfig] = useState(null);
 
     // 2. PEGAR O USUÁRIO LOGADO
     const { currentUser } = useAuth();
@@ -34,6 +35,7 @@ export default function ResultsDashboard({ data, onNewCalculation }) {
                 let teamComposition = [];
                 const response = await settingsService.getSettings();
                 teamComposition = response.data?.team_composition || [];
+                setMaintenanceConfig(response.data?.maintenance_config);
 
                 const complexityKey = data.complexity_score?.classification?.toLowerCase() || 'simple';
 
@@ -51,12 +53,44 @@ export default function ResultsDashboard({ data, onNewCalculation }) {
                 };
 
                 const reqHours = getHoursForRoles(['funcional', 'analista', 'business', 'po', 'product']);
-                const devHours = getHoursForRoles(['dev', 'desenvolvedor', 'rpa', 'programador']);
+
+                // Lógica customizada para Desenvolvimento: Considera apenas Dev Pleno (exclui Senior) para paralelismo
+                const getDevDurationDays = () => {
+                    let totalFTEs = 0;
+                    let hasDev = false;
+
+                    teamComposition.forEach(member => {
+                        const roleName = member.role.toLowerCase();
+                        const isDev = ['dev', 'desenvolvedor', 'rpa', 'programador'].some(k => roleName.includes(k));
+                        const isSenior = ['senior', 'sênior', 'sr'].some(k => roleName.includes(k));
+
+                        if (isDev) {
+                            hasDev = true;
+                            if (!isSenior) {
+                                const share = member.shares?.[complexityKey] || 0;
+                                totalFTEs += share;
+                            }
+                        }
+                    });
+
+                    // Fallback: Se não houver Pleno (só Senior), usa o total de horas de dev
+                    if (totalFTEs === 0 && hasDev) {
+                        const allDevHours = getHoursForRoles(['dev', 'desenvolvedor', 'rpa', 'programador']);
+                        totalFTEs = allDevHours / 168;
+                    }
+
+                    const totalHours = totalFTEs * 168;
+                    // Cálculo: (Horas / 40) = Semanas. Arredonda para baixo.
+                    const weeks = Math.floor(totalHours / 40);
+                    // Retorna dias úteis (5 dias por semana)
+                    return Math.max(weeks * 5, 1);
+                };
+
+                const devDays = getDevDurationDays();
                 const testHours = getHoursForRoles(['test', 'qa', 'homolog']);
                 const hyperHours = getHoursForRoles(['hyper', 'care', 'sustenta', 'suporte']);
 
                 const reqDays = Math.max(Math.ceil(reqHours / 8), 1);
-                const devDays = Math.max(Math.ceil(devHours / 8), 1);
                 const testDays = Math.max(Math.ceil(testHours / 8), 1);
                 const hyperDays = Math.max(Math.ceil(hyperHours / 8), 1);
 
@@ -672,6 +706,9 @@ export default function ResultsDashboard({ data, onNewCalculation }) {
                             <Box sx={{ p: 2, bgcolor: '#fff', borderRadius: 1, border: '1px dashed #cbd5e1' }}>
                                 <Typography variant="body2" color="text.secondary">
                                     <strong>Dimensionamento:</strong> Este robô utiliza <strong>1/{maintenanceAnalysis.capacityDivisor || 1}</strong> da capacidade de um FTE de sustentação, baseado em sua complexidade <strong>{getComplexityLabel(complexity.classification)}</strong>.
+                                </Typography>
+                                <Typography variant="caption" display="block" sx={{ mt: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                                    * Premissa: Esta proposta é valida apenas com a garantia de uma contratação mínima de <strong>{maintenanceConfig?.capacity_medium || 70}</strong> automações/robôs.
                                 </Typography>
                             </Box>
                         </Grid>

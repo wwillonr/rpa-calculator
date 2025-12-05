@@ -168,6 +168,9 @@ export default function StepSustainability({ data }) {
                     <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'text.secondary' }}>
                         * Este robô foi classificado como <strong>{complexity.label} Complexidade</strong>, portanto utiliza 1/{calculations.capacity} da capacidade de um FTE.
                     </Typography>
+                    <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
+                        * Premissa: Esta proposta é valida apenas com a garantia de uma contratação mínima de <strong>{settings?.capacity_medium || 70}</strong> automações/robôs.
+                    </Typography>
                 </Box>
             </Paper>
 
