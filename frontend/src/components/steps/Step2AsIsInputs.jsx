@@ -139,7 +139,7 @@ export default function Step2AsIsInputs({ data, onChange }) {
                                 <Typography variant="body2" gutterBottom>
                                     Taxa de Erro Humano / Retrabalho
                                     <Tooltip title="Porcentagem de itens que precisam ser refeitos devido a erros manuais." arrow placement="top">
-                                        <IconButton size="small" sx={{ ml: 1 }}><HelpOutline fontSize="small" fontSize="inherit" color="action" /></IconButton>
+                                        <IconButton size="small" sx={{ ml: 1 }}><HelpOutline fontSize="small" color="action" /></IconButton>
                                     </Tooltip>
                                 </Typography>
                                 <Slider

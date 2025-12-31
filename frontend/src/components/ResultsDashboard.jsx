@@ -157,7 +157,6 @@ export default function ResultsDashboard({ data, onNewCalculation }) {
     const maintenanceAnalysis = data.maintenance_analysis || {};
 
     // --- CÁLCULO DO ROI (Fórmula Revisada) ---
-    // --- CÁLCULO DO ROI (Fórmula Revisada) ---
     // Formula: ([Economia Anual (Ano1 + 2 x Ano2+)] / [Custo AS-IS x 3]) * Acuracia (Deflator) * 100
     // Opex Exemption: Se 'isento', Ano 2+ considera economia = AsIs (sem descontar Opex)
 
@@ -453,7 +452,6 @@ export default function ResultsDashboard({ data, onNewCalculation }) {
             fteCost: data.inputs_as_is.fte_cost,
             errorRate: data.inputs_as_is.error_rate
         },
-        complexity: data.complexity_input || {},
         complexity: data.complexity_input || {},
         strategic: data.strategic_input || {},
         opexExemption: data.opex_exemption || data.opexExemption // Passando a isenção para o review

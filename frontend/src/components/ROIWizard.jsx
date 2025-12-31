@@ -139,8 +139,6 @@ export default function ROIWizard({ onComplete }) {
                     numApplications: parseInt(formData.complexity.numApplications) || 1,
                     dataType: formData.complexity.dataType || 'structured',
                     environment: formData.complexity.environment || 'web',
-                    numSteps: parseInt(formData.complexity.numSteps) || 10,
-                    numSteps: parseInt(formData.complexity.numSteps) || 10,
                     useRpaLicense: formData.complexity.useRpaLicense || 'no',
                     rpaLicenseCost: parseFloat(formData.complexity.rpaLicenseCost) || 0,
                 },

@@ -99,8 +99,6 @@ export default function Settings() {
                 },
                 strategic_config: actualData.strategic_config || {
                     genai_cost_per_transaction: 0.05,
-                    idp_license_annual: 5000,
-                    idp_license_annual: 5000,
                     turnover_replacement_cost_percentage: 20,
                     roi_accuracy_percentage: 100
                 }
