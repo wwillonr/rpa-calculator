@@ -125,6 +125,7 @@ export default function ProjectHistory({ onViewProject }) {
             <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
               <TableRow>
                 <TableCell><strong>Projeto</strong></TableCell>
+                <TableCell><strong>Usuário</strong></TableCell>
                 <TableCell><strong>Data</strong></TableCell>
                 <TableCell><strong>Complexidade</strong></TableCell>
                 <TableCell><strong>Investimento</strong></TableCell>
@@ -140,11 +141,9 @@ export default function ProjectHistory({ onViewProject }) {
                     <TableRow key={project.id} hover>
                       <TableCell>
                         <Typography variant="body2" fontWeight="bold">{project.project_name}</Typography>
-                        {isAdmin && project.owner_uid !== currentUser?.uid && (
-                          <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                            ID: {project.owner_uid.slice(0, 8)}...
-                          </Typography>
-                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{project.user_email || '—'}</Typography>
                       </TableCell>
                       <TableCell>{new Date(project.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>

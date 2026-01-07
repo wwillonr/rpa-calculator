@@ -75,55 +75,82 @@ class ProjectService {
     }
 
     // --- CORREÇÃO PARA ADMIN VIEW ---
+
+
+    /**
+     * Helper para buscar emails dos donos dos projetos
+     */
+    async enrichWithUserEmails(projects) {
+        if (!projects.length) return [];
+
+        const userCache = {};
+        const enriched = [];
+
+        for (const project of projects) {
+            let email = 'Desconhecido';
+            const uid = project.owner_uid;
+
+            if (!uid || uid === 'anonymous') {
+                email = 'Anônimo';
+            } else if (userCache[uid]) {
+                email = userCache[uid];
+            } else {
+                try {
+                    const userDoc = await this.db.collection('users').doc(uid).get();
+                    if (userDoc.exists) {
+                        email = userDoc.data().email || 'Email não encontrado';
+                    } else {
+                        email = 'Usuário removido';
+                    }
+                } catch (err) {
+                    console.warn(`Erro ao buscar user ${uid}`, err);
+                    email = 'Erro ao buscar';
+                }
+                userCache[uid] = email;
+            }
+
+            enriched.push({ ...project, user_email: email });
+        }
+        return enriched;
+    }
+
+    // Método interno auxiliar para evitar duplicação de lógica (já que o try/catch separou os fluxos)
+    // Vou reescrever o listProjects inteiro para ser mais limpo na próxima iteração se necessário,
+    // mas por agora vou usar o replace para injetar a chamada.
+
+    // PERA, o meu replace acima foca no catch(indexError).
+    // Preciso garantir que o 'try' block (caminho feliz) TAMBÉM chame o enrich.
+
     async listProjects(ownerUid, limit = 50) {
         try {
             let query = this.db.collection('projects');
 
-            // Se o UID for 'all', NÃO filtramos (traz tudo).
-            // Se for um UID específico, filtramos.
             if (ownerUid && ownerUid !== 'all') {
                 query = query.where('owner_uid', '==', ownerUid);
             }
 
-            // Tenta usar ordenação e limite do banco de dados para performance
+            let projects = [];
+
             try {
-                // Nota: Para consultas com .where() e .orderBy(), o Firestore exige um índice composto.
-                // Se não existir, vai cair no catch e faremos a ordenação em memória (fallback).
+                // Tenta query otimizada
                 const optimizedQuery = query.orderBy('created_at', 'desc').limit(limit);
                 const snapshot = await optimizedQuery.get();
-
-                const projects = [];
-                snapshot.forEach((doc) => {
-                    projects.push({ id: doc.id, ...doc.data() });
-                });
-                return projects;
-
+                snapshot.forEach((doc) => projects.push({ id: doc.id, ...doc.data() }));
             } catch (indexError) {
-                console.warn('Index missing for optimized query, falling back to memory sort:', indexError.message);
-
-                // Fallback: Busca sem ordenação
+                console.warn('Index missing, falling back to memory sort.');
                 const snapshot = await query.get();
-
-                const projects = [];
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    projects.push({
-                        id: doc.id,
-                        ...data,
-                    });
-                });
-
-                return projects.sort((a, b) => {
-                    const dateA = new Date(a.created_at);
-                    const dateB = new Date(b.created_at);
-                    return dateB - dateA; // Mais recente primeiro
-                });
+                snapshot.forEach((doc) => projects.push({ id: doc.id, ...doc.data() }));
+                projects.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             }
+
+            // Enriquecer com emails
+            return await this.enrichWithUserEmails(projects);
 
         } catch (error) {
             console.error('Error listing projects:', error);
             throw new Error(`Failed to list projects: ${error.message}`);
         }
+
     }
 
     async updateProject(projectId, updates) {

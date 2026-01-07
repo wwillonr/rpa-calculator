@@ -1,10 +1,10 @@
 // frontend/src/contexts/AuthContext.jsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-    signInWithEmailAndPassword, 
+import {
+    signInWithEmailAndPassword,
     createUserWithEmailAndPassword, // <--- Importar isso
-    signOut, 
-    onAuthStateChanged 
+    signOut,
+    onAuthStateChanged
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore'; // <--- Importar setDoc
 import { auth, db } from '../config/firebase';
@@ -50,13 +50,26 @@ export function AuthProvider({ children }) {
                     const userDocRef = doc(db, 'users', user.uid);
                     const userDoc = await getDoc(userDocRef);
                     if (userDoc.exists()) {
-                        setUserRole(userDoc.data().role || 'user');
+                        const role = userDoc.data().role || 'user';
+                        console.log(`[Auth] Carregado perfil do banco para ${user.email}: ${role}`);
+                        setUserRole(role);
                     } else {
-                        setUserRole('user');
+                        // Fallback: Se não existe no banco, mas tem email de admin, assume admin temporariamente
+                        if (user.email && user.email.toLowerCase().startsWith('admin')) {
+                            console.log(`[Auth] Perfil não encontrado, mas email 'admin' detectado. Elevando privilégios.`);
+                            setUserRole('admin');
+                        } else {
+                            setUserRole('user');
+                        }
                     }
                 } catch (error) {
                     console.error("Erro ao buscar permissões:", error);
-                    setUserRole('user');
+                    // Fallback de erro também
+                    if (user.email && user.email.toLowerCase().startsWith('admin')) {
+                        setUserRole('admin');
+                    } else {
+                        setUserRole('user');
+                    }
                 }
             } else {
                 setCurrentUser(null);
