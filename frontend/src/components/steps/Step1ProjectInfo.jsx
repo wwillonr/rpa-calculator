@@ -92,7 +92,6 @@ export default function Step1ProjectInfo({ data, onChange }) {
                         displayEmpty
                     >
                         <MenuItem value="isento">Isento (Sem custo OPEX no ano 2+)</MenuItem>
-                        <MenuItem value="nao_isento">Não Isento (Com custo OPEX no ano 2+)</MenuItem>
                     </Select>
                     <FormHelperText>
                         Define se os custos de manutenção/licença serão cobrados a partir do segundo ano.
