@@ -87,7 +87,9 @@ export default function Step1ProjectInfo({ data, onChange }) {
                     <FormLabel component="legend">Isenção de OPEX (Ano 2+)</FormLabel>
                     <Select
                         value={data.opexExemption || 'isento'}
-                        onChange={(e) => onChange('opexExemption', e.target.value)}
+                        inputProps={{ readOnly: true }}
+                        IconComponent={() => null}
+                        readOnly
                         fullWidth
                         displayEmpty
                     >

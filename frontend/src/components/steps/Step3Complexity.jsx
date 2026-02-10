@@ -9,7 +9,8 @@ import {
     Chip,
     InputAdornment,
     Tooltip,
-    IconButton
+    IconButton,
+    Checkbox
 } from '@mui/material';
 import {
     Settings,
@@ -42,9 +43,14 @@ export default function Step3Complexity({ data, onChange }) {
         else points += 5;
 
         // Ambiente
-        if (data.environment === 'web') points += 1;
-        else if (data.environment === 'sap') points += 2;
-        else points += 4;
+        // Ambiente (Multi-seleção)
+        const envs = Array.isArray(data.environment) ? data.environment : [data.environment];
+        envs.forEach(env => {
+            if (env === 'web') points += 1;
+            else if (env === 'sap') points += 2;
+            else if (env === 'citrix') points += 4;
+            else points += 1; // Default fallback
+        });
 
         // Passos
         if (data.numSteps < 20) points += 1;
@@ -171,14 +177,28 @@ export default function Step3Complexity({ data, onChange }) {
                             select
                             fullWidth
                             label="Ambiente"
-                            value={data.environment}
+                            value={Array.isArray(data.environment) ? data.environment : [data.environment || 'web']}
                             onChange={(e) => handleChange('environment', e.target.value)}
                             required
+                            SelectProps={{
+                                multiple: true,
+                                renderValue: (selected) => (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                        {selected.map((value) => {
+                                            let label = value;
+                                            if (value === 'web') label = 'Web/Local';
+                                            if (value === 'sap') label = 'SAP/Mainframe';
+                                            if (value === 'citrix') label = 'Citrix/Remoto';
+                                            return <Chip key={value} label={label} size="small" />;
+                                        })}
+                                    </Box>
+                                )
+                            }}
                             InputProps={{
                                 startAdornment: <InputAdornment position="start"><Cloud color="action" /></InputAdornment>,
                                 endAdornment: (
                                     <InputAdornment position="end" sx={{ mr: 2 }}>
-                                        <Tooltip title="Onde o robô irá rodar. Ambientes Citrix/Remotos são mais instáveis e complexos de automatizar." arrow placement="top">
+                                        <Tooltip title="Onde o robô irá rodar. Selecione múltiplos se necessário (soma a complexidade)." arrow placement="top">
                                             <IconButton size="small" onMouseDown={(e) => e.stopPropagation()}>
                                                 <HelpOutline fontSize="small" color="action" />
                                             </IconButton>
@@ -188,6 +208,7 @@ export default function Step3Complexity({ data, onChange }) {
                             }}
                         >
                             <MenuItem value="web">
+                                <Checkbox checked={Array.isArray(data.environment) ? data.environment.indexOf('web') > -1 : data.environment === 'web'} />
                                 <Box>
                                     <Typography variant="body1">Web/Local</Typography>
                                     <Typography variant="caption" color="text.secondary">
@@ -196,6 +217,7 @@ export default function Step3Complexity({ data, onChange }) {
                                 </Box>
                             </MenuItem>
                             <MenuItem value="sap">
+                                <Checkbox checked={Array.isArray(data.environment) ? data.environment.indexOf('sap') > -1 : data.environment === 'sap'} />
                                 <Box>
                                     <Typography variant="body1">SAP/Mainframe</Typography>
                                     <Typography variant="caption" color="text.secondary">
@@ -204,6 +226,7 @@ export default function Step3Complexity({ data, onChange }) {
                                 </Box>
                             </MenuItem>
                             <MenuItem value="citrix">
+                                <Checkbox checked={Array.isArray(data.environment) ? data.environment.indexOf('citrix') > -1 : data.environment === 'citrix'} />
                                 <Box>
                                     <Typography variant="body1">Citrix/Remoto</Typography>
                                     <Typography variant="caption" color="text.secondary">
@@ -241,14 +264,15 @@ export default function Step3Complexity({ data, onChange }) {
                             select
                             fullWidth
                             label="Uso de Licença RPA"
-                            value={data.useRpaLicense || 'no'}
-                            onChange={(e) => handleChange('useRpaLicense', e.target.value)}
+                            value={data.useRpaLicense || 'yes'}
                             helperText="Se 'Não', considera desenvolvimento customizado (Python), aumentando a complexidade."
-                            InputProps={{
+                            inputProps={{
+                                readOnly: true,
                                 startAdornment: <InputAdornment position="start"><Settings color="action" /></InputAdornment>
                             }}
+                            IconComponent={() => null}
+                            readOnly
                         >
-                            <MenuItem value="no">Não (Custom/Python)</MenuItem>
                             <MenuItem value="yes">Sim (Licença Comercial)</MenuItem>
                         </TextField>
 
@@ -269,6 +293,8 @@ export default function Step3Complexity({ data, onChange }) {
                                             Informe o valor anual de licença <strong>atribuído a este robô</strong>.
                                             <br />
                                             Recomendamos ajuda especializada para calcular o rateio correto (Ex: 1 licença de Run custa 20k, mas roda 4 robôs = 5k/robô).
+                                            <br />
+                                            Considerar 100% de margem em cima.
                                         </span>
                                     }
                                 />

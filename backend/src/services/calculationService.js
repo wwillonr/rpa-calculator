@@ -42,13 +42,17 @@ class ComplexityService {
         }
 
         // 3. Ambiente
-        const environment = complexity.environment || 'web';
-        switch (environment) {
-            case 'web': totalPoints += 1; break;
-            case 'sap': totalPoints += 2; break;
-            case 'citrix': totalPoints += 4; break;
-            default: totalPoints += 1;
-        }
+        const environmentInput = complexity.environment || ['web'];
+        const environments = Array.isArray(environmentInput) ? environmentInput : [environmentInput];
+
+        environments.forEach(env => {
+            switch (env) {
+                case 'web': totalPoints += 1; break;
+                case 'sap': totalPoints += 2; break;
+                case 'citrix': totalPoints += 4; break;
+                default: totalPoints += 1;
+            }
+        });
 
         // 4. Regras/Passos
         const numSteps = complexity.numSteps || 0;

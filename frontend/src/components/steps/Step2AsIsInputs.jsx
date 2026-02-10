@@ -33,13 +33,13 @@ export default function Step2AsIsInputs({ data, onChange }) {
                                 startAdornment: <InputAdornment position="start"><TrendingUp color="action" /></InputAdornment>,
                                 endAdornment: (
                                     <InputAdornment position="end">
-                                        <Tooltip title="Quantidade média de transações, chamados ou documentos processados mensalmente." arrow placement="top">
+                                        <Tooltip title="Quantidade média de processos executados do inicio ao fim no mês." arrow placement="top">
                                             <IconButton edge="end" size="small"><HelpOutline fontSize="small" color="action" /></IconButton>
                                         </Tooltip>
                                     </InputAdornment>
                                 )
                             }}
-                            helperText="Total de itens processados por mês em média"
+                            helperText="Total de processos executados por mês em média"
                         />
                     </Grid>
                     <Grid item xs={12} md={6}>

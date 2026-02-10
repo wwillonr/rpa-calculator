@@ -57,9 +57,13 @@ export default function Step5Review({ data, hideInstructions = false }) {
         else if (data.complexity.dataType === 'text') points += 2;
         else points += 5;
 
-        if (data.complexity.environment === 'web') points += 1;
-        else if (data.complexity.environment === 'sap') points += 2;
-        else points += 4;
+        const envs = Array.isArray(data.complexity.environment) ? data.complexity.environment : [data.complexity.environment];
+        envs.forEach(env => {
+            if (env === 'web') points += 1;
+            else if (env === 'sap') points += 2;
+            else if (env === 'citrix') points += 4;
+            else points += 1; // Default fallback (e.g. unknown environment)
+        });
 
         if (data.complexity.numSteps < 20) points += 1;
         else if (data.complexity.numSteps <= 50) points += 3;
@@ -314,7 +318,9 @@ export default function Step5Review({ data, hideInstructions = false }) {
                             Ambiente
                         </Typography>
                         <Typography variant="body1" fontWeight={500}>
-                            {environmentLabels[data.complexity.environment]}
+                            {Array.isArray(data.complexity.environment)
+                                ? data.complexity.environment.map(env => environmentLabels[env] || env).join(', ')
+                                : environmentLabels[data.complexity.environment] || data.complexity.environment}
                         </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6} md={3}>

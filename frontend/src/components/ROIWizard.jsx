@@ -43,9 +43,9 @@ export default function ROIWizard({ onComplete }) {
         complexity: {
             numApplications: 1,
             dataType: 'structured',
-            environment: 'web',
+            environment: ['web'],
             numSteps: 10,
-            useRpaLicense: 'no', // Default mudou para Não por pedido do usuário
+            useRpaLicense: 'yes', // Default mudou para Sim por pedido do usuário
             rpaLicenseCost: 0,
         },
         strategic: {
@@ -100,7 +100,7 @@ export default function ROIWizard({ onComplete }) {
             complexity: {
                 numApplications: 1,
                 dataType: 'structured',
-                environment: 'web',
+                environment: ['web'],
                 numSteps: 10,
             },
             strategic: {
@@ -138,7 +138,7 @@ export default function ROIWizard({ onComplete }) {
                 complexity: {
                     numApplications: parseInt(formData.complexity.numApplications) || 1,
                     dataType: formData.complexity.dataType || 'structured',
-                    environment: formData.complexity.environment || 'web',
+                    environment: formData.complexity.environment || ['web'],
                     numSteps: parseInt(formData.complexity.numSteps) || 10,
                     useRpaLicense: formData.complexity.useRpaLicense || 'no',
                     rpaLicenseCost: parseFloat(formData.complexity.rpaLicenseCost) || 0,
