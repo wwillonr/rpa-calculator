@@ -7,12 +7,7 @@ import {
     Paper,
     InputAdornment,
     Tooltip,
-    IconButton,
-    FormControl,
-    FormLabel,
-    Select,
-    MenuItem,
-    FormHelperText
+    IconButton
 } from '@mui/material';
 import { Business, HelpOutline } from '@mui/icons-material';
 
@@ -82,23 +77,6 @@ export default function Step1ProjectInfo({ data, onChange }) {
                         )
                     }}
                 />
-
-                <FormControl component="fieldset" fullWidth sx={{ mb: 3 }}>
-                    <FormLabel component="legend">Isenção de OPEX (Ano 2+)</FormLabel>
-                    <Select
-                        value={data.opexExemption || 'isento'}
-                        inputProps={{ readOnly: true }}
-                        IconComponent={() => null}
-                        readOnly
-                        fullWidth
-                        displayEmpty
-                    >
-                        <MenuItem value="isento">Isento (Sem custo OPEX no ano 2+)</MenuItem>
-                    </Select>
-                    <FormHelperText>
-                        Define se os custos de manutenção/licença serão cobrados a partir do segundo ano.
-                    </FormHelperText>
-                </FormControl>
             </Paper>
 
             <Box

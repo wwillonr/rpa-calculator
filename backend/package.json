@@ -1,6 +1,6 @@
 {
   "name": "rpa-roi-navigator-backend",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Backend API for RPA ROI Calculator",
   "main": "src/server.js",
   "type": "module",

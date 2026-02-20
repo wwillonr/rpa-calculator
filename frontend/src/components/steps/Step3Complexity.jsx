@@ -261,20 +261,14 @@ export default function Step3Complexity({ data, onChange }) {
 
                     <Grid item xs={12} md={6}>
                         <TextField
-                            select
                             fullWidth
                             label="Uso de Licença RPA"
-                            value={data.useRpaLicense || 'yes'}
-                            helperText="Se 'Não', considera desenvolvimento customizado (Python), aumentando a complexidade."
+                            value="Sim (Licença Comercial)"
                             inputProps={{
                                 readOnly: true,
                                 startAdornment: <InputAdornment position="start"><Settings color="action" /></InputAdornment>
                             }}
-                            IconComponent={() => null}
-                            readOnly
-                        >
-                            <MenuItem value="yes">Sim (Licença Comercial)</MenuItem>
-                        </TextField>
+                        />
 
                         {data.useRpaLicense === 'yes' && (
                             <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', border: '1px dashed #ccc', borderRadius: 1 }}>
