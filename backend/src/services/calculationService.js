@@ -154,7 +154,7 @@ class FinancialService {
     calculateDevelopmentCost(teamComposition, complexityLevel) {
         // Fallback se não houver composição definida
         if (!teamComposition || teamComposition.length === 0) {
-            return 0;
+            return { cost: 0, hours: 0 };
         }
 
         let totalCost = 0;
@@ -392,7 +392,7 @@ class FinancialService {
                 },
                 development: developmentCost,
                 toBe: {
-                    licenseCost: infraCosts.rpa_license_annual,
+                    licenseCost: rpaLicenseCost,
                     infraCost: infraCosts.virtual_machine_annual + (infraCosts.database_annual || 0),
                     maintenanceCost,
                     genAiCost,

@@ -19,6 +19,13 @@ class SettingsController {
                         virtual_machine_annual: 0,
                         database_annual: 0
                     },
+                    annual_cost_estimate: {
+                        baseAnnualCost: 70000,
+                        robots24h: 33,
+                        robots12h: 18,
+                        markupMargin: 100,
+                        growthPerMonth: 15
+                    },
                     baselines: { low: 104, medium: 208, high: 416 },
                     updated_at: new Date().toISOString()
                 };

@@ -57,7 +57,7 @@ class ProjectService {
             };
         } catch (error) {
             console.error('Error creating project:', error);
-            throw new Error('Failed to create project');
+            throw new Error(`Failed to create project: ${error.message}`);
         }
     }
 

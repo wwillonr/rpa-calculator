@@ -6,14 +6,15 @@ import {
 } from '@mui/material';
 import { Save, PersonAdd, Delete, Functions, HelpOutline, Settings as SettingsIcon, Psychology, Group, Block, CheckCircle } from '@mui/icons-material';
 import { settingsService, userService } from '../services/api';
+import AnnualCostEstimateTab from './AnnualCostEstimateTab';
 
-export default function Settings() {
+export default function Settings({ initialTab = 0 }) {
     const [settings, setSettings] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
     const [users, setUsers] = useState([]);
-    const [tabIndex, setTabIndex] = useState(0); // [NEW] Tab state
+    const [tabIndex, setTabIndex] = useState(initialTab); // [NEW] Tab state
 
     useEffect(() => {
         loadSettings();
@@ -259,6 +260,7 @@ export default function Settings() {
             <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
                 <Tabs value={tabIndex} onChange={handleTabChange} aria-label="settings tabs">
                     <Tab label="Configurações Gerais" />
+                    <Tab label="Estimativa de Custo Anual" />
                     <Tab label="Administração de Usuários" />
                 </Tabs>
             </Box>
@@ -637,8 +639,13 @@ export default function Settings() {
                 </Box>
             )}
 
-            {/* TAB 1: Administração de Usuários */}
+            {/* TAB 1: Estimativa de Custo Anual */}
             {tabIndex === 1 && (
+                <AnnualCostEstimateTab />
+            )}
+
+            {/* TAB 2: Administração de Usuários */}
+            {tabIndex === 2 && (
                 <Paper elevation={3} sx={{ p: 4, mb: 4, bgcolor: '#fff8e1' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                         <Group color="secondary" sx={{ mr: 1 }} />

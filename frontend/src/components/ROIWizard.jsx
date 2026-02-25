@@ -16,7 +16,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const steps = ['Projeto', 'Cenário', 'Complexidade', 'Estratégia', 'Sustentação', 'Revisão'];
 
-export default function ROIWizard({ onComplete }) {
+export default function ROIWizard({ onComplete, onNavigate }) {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const { currentUser } = useAuth();
@@ -219,7 +219,7 @@ export default function ROIWizard({ onComplete }) {
         switch (step) {
             case 0: return <Step1ProjectInfo data={formData} onChange={updateFormData} />;
             case 1: return <Step2AsIsInputs data={formData.inputs} onChange={(value) => updateFormData('inputs', value)} />;
-            case 2: return <Step3Complexity data={formData.complexity} onChange={(value) => updateFormData('complexity', value)} />;
+            case 2: return <Step3Complexity data={formData.complexity} onChange={(value) => updateFormData('complexity', value)} onNavigate={onNavigate} />;
             case 3: return <Step4Strategic data={formData.strategic} onChange={(value) => updateFormData('strategic', value)} />;
             case 4: return <StepSustainability data={formData} />;
             case 5: return <Step5Review data={formData} />;

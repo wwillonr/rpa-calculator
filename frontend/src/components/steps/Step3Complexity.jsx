@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { settingsService } from '../../services/api';
 import {
     Box,
     Typography,
@@ -21,7 +22,26 @@ import {
     HelpOutline
 } from '@mui/icons-material';
 
-export default function Step3Complexity({ data, onChange }) {
+export default function Step3Complexity({ data, onChange, onNavigate }) {
+    useEffect(() => {
+        let isMounted = true;
+        const fetchSettings = async () => {
+            try {
+                const response = await settingsService.getSettings();
+                if (response.success && response.data?.annual_cost_estimate?.projections) {
+                    const rawPrice = response.data.annual_cost_estimate.projections.avgPricePerRobotCurrentYear || 0;
+                    const price = Number(rawPrice.toFixed(2));
+                    if (isMounted && data.rpaLicenseCost !== price) {
+                        onChange({ ...data, rpaLicenseCost: price });
+                    }
+                }
+            } catch (err) {
+                console.error("Erro ao buscar configurações de estimativa:", err);
+            }
+        };
+        fetchSettings();
+        return () => { isMounted = false; };
+    }, []); // Busca inicial configurações
     const handleChange = (field, value) => {
         onChange({
             ...data,
@@ -270,31 +290,28 @@ export default function Step3Complexity({ data, onChange }) {
                             }}
                         />
 
-                        {data.useRpaLicense === 'yes' && (
-                            <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', border: '1px dashed #ccc', borderRadius: 1 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Custo da Licença (Proporcional)"
-                                    type="number"
-                                    size="small"
-                                    value={data.rpaLicenseCost}
-                                    onChange={(e) => handleChange('rpaLicenseCost', e.target.value)}
-                                    InputProps={{
-                                        startAdornment: <InputAdornment position="start">R$</InputAdornment>,
-                                    }}
-                                    helperText={
-                                        <span>
-                                            Informe o valor anual de licença <strong>atribuído a este robô</strong>.
-                                            <br />
-                                            Recomendamos ajuda especializada para calcular o rateio correto (Ex: 1 licença de Run custa 20k, mas roda 4 robôs = 5k/robô).
-                                            <br />
-                                            Considerar 100% de margem em cima.
-                                        </span>
-                                    }
-                                />
-                            </Box>
-                        )}
                     </Grid>
+
+                    {data.useRpaLicense === 'yes' && (
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                fullWidth
+                                label="Custo da Licença (Proporcional)"
+                                type="text"
+                                value={Number(data.rpaLicenseCost || 0).toFixed(2)}
+                                onChange={(e) => handleChange('rpaLicenseCost', e.target.value)}
+                                InputProps={{
+                                    readOnly: true,
+                                    startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                                }}
+                                helperText={
+                                    <span>
+                                        Custo de licença baseado no número de robos atuais e a sua projeção de crescimento anual e markup.
+                                    </span>
+                                }
+                            />
+                        </Grid>
+                    )}
                 </Grid>
             </Paper>
 

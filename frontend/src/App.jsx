@@ -25,8 +25,9 @@ const theme = createTheme({
 });
 
 function AppContent() {
-    const { currentUser } = useAuth();
+    const { currentUser, isAdmin } = useAuth();
     const [currentView, setCurrentView] = useState('home');
+    const [settingsTab, setSettingsTab] = useState(0);
     const [authMode, setAuthMode] = useState('login'); // 'login', 'signup', 'forgot'
     const [selectedProject, setSelectedProject] = useState(null);
 
@@ -58,15 +59,26 @@ function AppContent() {
         setCurrentView('results');
     };
 
+    const handleNavigate = (view, tabIndex = 0) => {
+        if (view === 'settings' && !isAdmin) {
+            console.error("Acesso negado: Perfil de administrador exigido.");
+            return; // Bloqueia navegação
+        }
+        setCurrentView(view);
+        if (view === 'settings') {
+            setSettingsTab(tabIndex);
+        }
+    };
+
     return (
         <>
-            <Navbar currentView={currentView} onViewChange={setCurrentView} />
+            <Navbar currentView={currentView} onViewChange={(v) => handleNavigate(v, 0)} />
             <Box sx={{ pb: 8 }}>
                 {currentView === 'home' && <Home onStart={handleNewCalculation} onViewProject={handleViewProject} />}
-                {currentView === 'wizard' && <ROIWizard onComplete={handleCalculationComplete} />}
+                {currentView === 'wizard' && <ROIWizard onComplete={handleCalculationComplete} onNavigate={handleNavigate} />}
                 {currentView === 'results' && selectedProject && <ResultsDashboard data={selectedProject} onNewCalculation={handleNewCalculation} />}
                 {currentView === 'history' && <ProjectHistory onViewProject={handleViewProject} />}
-                {currentView === 'settings' && <Settings />}
+                {currentView === 'settings' && isAdmin && <Settings initialTab={settingsTab} />}
             </Box>
             <ReloadPrompt />
         </>
